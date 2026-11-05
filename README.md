@@ -53,13 +53,15 @@ soundtrack (one of five tunes) are shuffled every show.
 down, and each new question is pitched at the current level with a small
 wobble so it never feels like a wall:
 
-| Level | Arithmetic                                     | Kanji                                   |
-|-------|------------------------------------------------|-----------------------------------------|
-| 0     | ×1–3, no carrying / borrowing, 2-digit second term | grade-1 kanji, any reading           |
-| 1     | ×2–5, 3-digit terms, still no carry / borrow     | grade-1 kanji or grade-1 word         |
-| 2     | ×2–7, one carry / borrow                         | grade-2 kanji, grade-1 words          |
-| 3     | ×3–9, two carries / borrows                      | grade-2 words with okurigana          |
-| 4     | ×6–9, borrowing across a zero                    | grade-2 compounds (on-yomi)           |
+| Level | Arithmetic                                              | Kanji                                      |
+|-------|---------------------------------------------------------|--------------------------------------------|
+| 0     | within 100, no regrouping; ×1–2                         | the easiest grade-1 kanji, any reading     |
+| 1     | within 100 with one regroup, 3-digit + 2-digit; ×2–5    | all grade-1 kanji, easy grade-1 words      |
+| 2     | 3-digit ± 3-digit, at most one carry / borrow; ×2–6     | grade-1 words, grade-2 kanji any reading   |
+| 3     | two carries / borrows; ×3–9                             | grade-2 words with okurigana               |
+| 4     | borrowing across a zero, answers up to 999; ×6–9        | grade-2 compounds (on-yomi)                |
+
+Level 0 is pitched at the start of 2nd grade and level 4 at the end of it.
 
 Stars are awarded for every solve (two for a first try) and shown on the
 HUD and the title screen.

@@ -1100,7 +1100,11 @@
 
     drawAccessoryBack(c, cust);
     drawJacketBack(c, cust);
+    /* loose hair swings a touch behind the step */
+    c.save();
+    c.translate(-swing * 0.35, Math.abs(swing) * 0.15);
     drawHair(c, cust, true);
+    c.restore();
     drawBagBack(c, cust);
 
     /* Legs, pants, shoes */
@@ -1131,6 +1135,31 @@
     if (!(cust.mannequin && !cust.showHat)) drawHat(c, cust);
 
     c.restore();
+  }
+
+  /* A faint mirror image under the feet, for polished floors. The
+     reflection is clipped to `height` px below y and fades into
+     `fadeColor` (the floor colour) so it never ends in a hard line. */
+  function drawReflection(c, x, y, cust, frame, facing, scale, alpha, height, fadeColor, opts) {
+    var sc = scale || 1, h = height || 28;
+    c.save();
+    c.beginPath();
+    c.rect(x - 70 * sc, y + 1, 140 * sc, h);
+    c.clip();
+    c.globalAlpha = alpha || 0.2;
+    c.translate(0, 2 * y + 2);
+    c.scale(1, -1);
+    var o = opts ? JSON.parse(JSON.stringify(opts)) : {};
+    o.noShadow = true;
+    drawCharacter(c, x, y, cust, frame, facing, sc, false, 0, o);
+    c.restore();
+    if (fadeColor) {
+      var f = c.createLinearGradient(0, y + 1, 0, y + h);
+      f.addColorStop(0, fadeColor.replace(/[\d.]+\)$/, '0)'));
+      f.addColorStop(1, fadeColor);
+      c.fillStyle = f;
+      c.fillRect(x - 70 * sc, y + 1, 140 * sc, h);
+    }
   }
 
   /* Head-and-shoulders chip for rosters. */
@@ -1278,7 +1307,7 @@
   Walker.prototype.animate = function (moving) {
     if (moving) {
       this.animTimer++;
-      if (this.animTimer >= 7) {
+      if (this.animTimer >= 5) {
         this.animTimer = 0;
         this.frame = (this.frame % 4) + 1;
       }
@@ -1293,7 +1322,7 @@
     }
   };
 
-  var SPEED = 3.4;
+  var SPEED = 5.4;
 
   function Player(x, y) { Walker.call(this, x, y); }
   Player.prototype = Object.create(Walker.prototype);
@@ -1353,6 +1382,7 @@
     CH: CH,
     drawCharacter: drawCharacter,
     drawPortrait: drawPortrait,
+    drawReflection: drawReflection,
     drawLookTile: drawLookTile,
     randomLook: randomLook,
     Particle: Particle,

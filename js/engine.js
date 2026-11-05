@@ -13,7 +13,7 @@
   var GAME_X = 0, GAME_Y = 0;
 
   /* Bump alongside CACHE_NAME in sw.js and tag the matching git release. */
-  Game.VERSION = 'v1.0.0';
+  Game.VERSION = 'v1.1.0';
 
   var canvas, ctx;
 
@@ -344,15 +344,40 @@
     if (S.runwayDoor.x > camX - 200 && S.runwayDoor.x < camX + W + 200) {
       Game.studio.drawRunwayDoor(c, S.runwayDoor.x, S.groundY, t, target && target.id === 'runway');
     }
+    E.drawReflection(c, player.x, player.y, Game.look, player.frame, player.facing, PLAYER_SCALE, 0.16, 30, 'rgba(226,170,190,1)');
     player.draw(c, Game.look, PLAYER_SCALE, t);
     for (var p = 0; p < particles.length; p++) particles[p].draw(c);
     c.restore();
+    drawAmbientSparkles(c, camX);
 
     if (target && state === State.PLAYING) {
       Game.ui.drawPrompt(c, target.x - camX, target.promptY, target.label);
     }
     if (state !== State.PAUSED) Game.ui.drawHud(c);
     Game.ui.drawToast(c);
+  }
+
+  /* Slow glitter drifting through the studio air, deterministic so it
+     costs nothing and never pops. */
+  var SPARKLES = (function () {
+    var rnd = E.seeded(4242), out = [];
+    for (var i = 0; i < 26; i++) out.push({ x: rnd() * 1600, y: 40 + rnd() * 300, ph: rnd() * 6.28, sp: 0.2 + rnd() * 0.3, r: 1.5 + rnd() * 2 });
+    return out;
+  })();
+  function drawAmbientSparkles(c, camX) {
+    c.save();
+    c.fillStyle = '#ffffff';
+    for (var i = 0; i < SPARKLES.length; i++) {
+      var sp = SPARKLES[i];
+      var x = ((sp.x - camX * 0.6 + t * sp.sp) % 1600 + 1600) % 1600 - 400;
+      if (x < -10 || x > W + 10) continue;
+      var y = sp.y + Math.sin(t / 50 + sp.ph) * 8;
+      var tw = Math.sin(t / 9 + sp.ph);
+      if (tw <= 0.2) continue;
+      c.globalAlpha = (tw - 0.2) * 0.9;
+      E.star(c, x, y, sp.r * tw + 1);
+    }
+    c.restore();
   }
 
   /* ---- Clicks ---- */

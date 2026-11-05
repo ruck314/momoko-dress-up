@@ -242,7 +242,7 @@
   function drawTitleScreen(c) {
     t++;
     /* windows at x=310 and 740: behind the podium and past the buttons */
-    Game.studio.drawBackdrop(c, 0, t, TITLE_GROUND, 250);
+    Game.studio.drawBackdrop(c, 0, t, TITLE_GROUND, 250, true);
     c.save();
     clipGame(c);
 
@@ -254,6 +254,19 @@
     E.star(c, px, py - 4, 16);
     var cast = titleCast();
     var hop = Math.max(0, Math.sin(t / 22)) * 6;
+    /* velvet ropes either side of the podium */
+    for (var ps = -1; ps <= 1; ps += 2) {
+      var sx2 = px + ps * 196;
+      E.fillEllipse(c, sx2, py + 4, 13, 4, PAL.woodDark);
+      E.fillRound(c, sx2 - 2.5, py - 54, 5, 58, 2, PAL.gold);
+      E.fillEllipse(c, sx2, py - 56, 5.5, 5.5, PAL.gold);
+    }
+    c.strokeStyle = PAL.pinkDeep; c.lineWidth = 4; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(px - 196, py - 52); c.quadraticCurveTo(px - 160, py - 26, px - 130, py - 30); c.stroke();
+    c.beginPath(); c.moveTo(px + 196, py - 52); c.quadraticCurveTo(px + 160, py - 26, px + 130, py - 30); c.stroke();
+    E.drawReflection(c, px - 110, py - 8, cast[0], 0, 1, 1.2, 0.18, 24, 'rgba(255,143,192,1)', { pose: 'pose' });
+    E.drawReflection(c, px + 110, py - 8, cast[1], 0, -1, 1.2, 0.18, 24, 'rgba(255,143,192,1)', { pose: 'wave' });
+    E.drawReflection(c, px, py - 10, Game.look, 0, 1, 1.6, 0.18, 26, 'rgba(255,143,192,1)');
     E.drawCharacter(c, px - 110, py - 8, cast[0], 0, 1, 1.2, (t % 260) < 8, 0, { pose: 'pose', t: t });
     E.drawCharacter(c, px + 110, py - 8, cast[1], 0, -1, 1.2, (t % 240) < 8, 0, { pose: 'wave', t: t });
     E.drawCharacter(c, px, py - 10, Game.look, 0, 1, 1.6, (t % 220) < 8, hop, { t: t });
@@ -277,24 +290,24 @@
     c.font = 'bold 30px ' + FONT;
     c.strokeStyle = 'rgba(255, 250, 245, 0.92)';
     c.lineWidth = 6;
-    c.strokeText(T('title'), TITLE_CX, 106 + bob);
+    c.strokeText(T('title'), TITLE_CX, 118 + bob);
     c.fillStyle = PAL.ink;
-    c.fillText(T('title'), TITLE_CX, 106 + bob);
+    c.fillText(T('title'), TITLE_CX, 118 + bob);
     fitFont(c, T('title2'), 360, 56, 'bold', 28);
     c.fillStyle = 'rgba(74, 42, 64, 0.22)';
-    c.fillText(T('title2'), TITLE_CX + 2, 162 + bob + 4);
+    c.fillText(T('title2'), TITLE_CX + 2, 172 + bob + 4);
     c.strokeStyle = PAL.cream;
     c.lineWidth = 9;
-    c.strokeText(T('title2'), TITLE_CX, 162 + bob);
+    c.strokeText(T('title2'), TITLE_CX, 172 + bob);
     c.fillStyle = PAL.pinkDeep;
-    c.fillText(T('title2'), TITLE_CX, 162 + bob);
+    c.fillText(T('title2'), TITLE_CX, 172 + bob);
     c.font = 'bold 15px ' + FONT;
     var sw = c.measureText(T('titleSubtitle')).width + 30;
     c.fillStyle = 'rgba(255, 246, 236, 0.9)';
-    E.roundRect(c, TITLE_CX - sw / 2, 200 + bob, sw, 26, 13);
+    E.roundRect(c, TITLE_CX - sw / 2, 208 + bob, sw, 26, 13);
     c.fill();
     c.fillStyle = PAL.purple;
-    c.fillText(T('titleSubtitle'), TITLE_CX, 214 + bob);
+    c.fillText(T('titleSubtitle'), TITLE_CX, 222 + bob);
     c.restore();
     c.restore();
 
@@ -370,7 +383,7 @@
 
   function drawIntroScreen(c) {
     t++;
-    Game.studio.drawBackdrop(c, 0, t, TITLE_GROUND);
+    Game.studio.drawBackdrop(c, 0, t, TITLE_GROUND, 0, true);
     clipGame(c);
 
     /* picture: Momoko in the studio doorway, looking at a dress rack */
@@ -387,19 +400,22 @@
     var gy = R.y + R.h - 60;
     c.fillStyle = PAL.floor; c.fillRect(R.x, gy, R.w, 60);
     c.fillStyle = 'rgba(255,255,255,0.4)'; c.fillRect(R.x, gy, R.w, 3);
-    Game.studio.drawStation(c, Game.STATIONS[6], gy + 2, t, true);
+    /* the dress rack booth, moved from its world position into the frame */
+    var rack = Game.STATIONS[6];
     c.save();
-    c.translate(0, 0);
-    E.drawCharacter(c, R.x + 60, gy + 14, Game.look, 0, 1, 1.5, (t % 200) < 8, 0, { t: t });
+    c.translate(R.x + 186 - rack.x, 0);
+    Game.studio.drawStation(c, rack, gy + 2, t, true);
     c.restore();
+    E.drawReflection(c, R.x + 60, gy + 14, Game.look, 0, 1, 1.5, 0.18, 30, 'rgba(233,184,201,1)');
+    E.drawCharacter(c, R.x + 60, gy + 14, Game.look, 0, 1, 1.5, (t % 200) < 8, 0, { t: t });
     /* a thought bubble with a sparkly dress */
     var bob = Math.sin(t / 30) * 2;
-    E.fillEllipse(c, R.x + 86, gy - 90 + bob, 4, 4, '#ffffff');
-    E.fillEllipse(c, R.x + 98, gy - 108 + bob, 6, 6, '#ffffff');
-    E.fillEllipse(c, R.x + 130, gy - 150 + bob, 42, 34, '#ffffff');
+    E.fillEllipse(c, R.x + 84, gy - 96 + bob, 4, 4, '#ffffff');
+    E.fillEllipse(c, R.x + 92, gy - 118 + bob, 6, 6, '#ffffff');
+    E.fillEllipse(c, R.x + 104, gy - 168 + bob, 42, 34, '#ffffff');
     var dream = JSON.parse(JSON.stringify(Game.look));
     dream.dress = 'princess'; dream.dressColor = PAL.pink; dream.hat = 'tiara'; dream.shoes = 'maryJane';
-    E.drawLookTile(c, R.x + 130, gy - 150 + bob, 56, dream, 'dress', { round: true, bg: false });
+    E.drawLookTile(c, R.x + 104, gy - 168 + bob, 56, dream, 'dress', { round: true, bg: false });
     c.restore();
     E.roundRect(c, R.x, R.y, R.w, R.h, 12);
     E.ink(c, 2);
@@ -544,7 +560,7 @@
     var st = ward.station;
     if (!st) return;
     var look = Game.look;
-    Game.studio.drawBackdrop(c, st.x - W / 2, t, TITLE_GROUND);
+    Game.studio.drawBackdrop(c, st.x - W / 2, t, TITLE_GROUND, 0, true);
     c.save();
     clipGame(c);
 
@@ -585,15 +601,47 @@
     c.fillStyle = 'rgba(255,255,255,0.5)'; c.fillRect(PX, pgy, PW, 3);
     var pcx = PX + PW / 2;
     var pcy = PY + PH - 36;
+    /* a tall gold mirror behind her */
+    E.fillEllipse(c, pcx, pgy - 112, 86, 128, PAL.gold);
+    c.save();
+    c.beginPath(); c.ellipse(pcx, pgy - 112, 78, 120, 0, 0, Math.PI * 2); c.clip();
+    var mg = c.createLinearGradient(pcx - 78, pgy - 232, pcx + 78, pgy + 8);
+    mg.addColorStop(0, '#f3fbff'); mg.addColorStop(0.5, '#d8edf8'); mg.addColorStop(1, '#f3fbff');
+    c.fillStyle = mg; c.fillRect(pcx - 80, pgy - 240, 160, 250);
+    c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 8;
+    c.beginPath(); c.moveTo(pcx - 50, pgy - 30); c.lineTo(pcx + 30, pgy - 200); c.stroke();
+    c.restore();
+    c.beginPath(); c.ellipse(pcx, pgy - 112, 78, 120, 0, 0, Math.PI * 2); E.ink(c, 2);
+    for (var gi = 0; gi < 10; gi++) {
+      var ga = gi * Math.PI / 5;
+      E.fillEllipse(c, pcx + Math.cos(ga) * 83, pgy - 112 + Math.sin(ga) * 125, 3, 3, gi % 2 ? PAL.pink : '#ffffff', false);
+    }
+    /* spotlights from the top corners */
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (var sd = -1; sd <= 1; sd += 2) {
+      var bg = c.createLinearGradient(0, PY, 0, pgy);
+      bg.addColorStop(0, 'rgba(255,245,210,0.35)');
+      bg.addColorStop(1, 'rgba(255,245,210,0)');
+      c.fillStyle = bg;
+      c.beginPath();
+      c.moveTo(pcx + sd * (PW / 2 - 20), PY);
+      c.lineTo(pcx + sd * (PW / 2 - 6), PY);
+      c.lineTo(pcx + sd * 10, pgy);
+      c.lineTo(pcx - sd * 60, pgy);
+      c.closePath(); c.fill();
+    }
+    c.restore();
     var spot = c.createRadialGradient(pcx, pcy - 90, 10, pcx, pcy - 90, 130);
-    spot.addColorStop(0, 'rgba(255, 250, 220, 0.7)');
+    spot.addColorStop(0, 'rgba(255, 250, 220, 0.5)');
     spot.addColorStop(1, 'rgba(255, 250, 220, 0)');
     c.fillStyle = spot;
     c.fillRect(PX, PY, PW, PH);
-    E.softShadow(c, pcx, pcy, 54, 10, 0.26);
     var cycle = Math.floor(t / 150) % 2;
     var walkFrame = Math.floor(t / 9) % 4 + 1;
     var shown = ward.pending ? ward.pending.look : look;
+    E.drawReflection(c, pcx, pcy, shown, walkFrame, cycle ? -1 : 1, 2.75, 0.18, PY + PH - pcy - 4, 'rgba(233,184,201,1)');
+    E.softShadow(c, pcx, pcy, 54, 10, 0.26);
     E.drawCharacter(c, pcx, pcy, shown, walkFrame, cycle ? -1 : 1, 2.75, (t % 190) < 8, 0, { t: t });
     if (ward.flash > 0) {
       ward.flash--;

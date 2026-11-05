@@ -27,28 +27,113 @@
      ================================================================ */
   var BUNTING_COLS = [PAL.pink, PAL.sun, PAL.mint, PAL.lavender, PAL.sky, PAL.coral];
 
+  /* Wallpaper tile: tiny hearts and dots on the pink, painted once. */
+  function wallpaperTile() {
+    return E.getCachedSprite('wallpaper', 120, 120, function (g) {
+      var rnd = E.seeded(12);
+      g.globalAlpha = 0.18;
+      for (var i = 0; i < 6; i++) {
+        var x = 10 + (i % 3) * 40 + (Math.floor(i / 3) % 2) * 20, y = 14 + Math.floor(i / 3) * 60;
+        if (i % 2 === 0) E.heart(g, x, y, 5, '#ffffff', false);
+        else E.fillEllipse(g, x, y, 3.2, 3.2, '#ffffff', false);
+      }
+      g.globalAlpha = 0.1;
+      for (var k = 0; k < 8; k++) E.fillEllipse(g, rnd() * 120, rnd() * 120, 1.4, 1.4, '#e2559a', false);
+    });
+  }
+
   function drawWall(c, camX, groundY) {
     var V = view();
     var g = c.createLinearGradient(0, V.y, 0, groundY);
-    g.addColorStop(0, '#fff0f6');
+    g.addColorStop(0, '#fff3f8');
     g.addColorStop(0.55, PAL.wall);
     g.addColorStop(1, PAL.wallB);
     c.fillStyle = g;
     c.fillRect(V.x, V.y, V.w, groundY - V.y);
-    /* faint vertical stripes, parallax at 0.5 */
-    c.save();
-    c.globalAlpha = 0.16;
+    /* wallpaper pattern, parallax at 0.5 */
+    var tile = wallpaperTile();
+    var off = -((camX * 0.5) % 120);
+    for (var x = V.x + off - 120; x < V.x + V.w; x += 120) {
+      for (var y = V.y; y < groundY - 110; y += 120) {
+        c.drawImage(tile, x, y, 120, Math.min(120, groundY - 110 - y));
+      }
+    }
+    /* picture rail */
+    E.fillRound(c, V.x, groundY - 240, V.w, 8, 0, '#ffffff', false);
+    c.fillStyle = 'rgba(74,42,64,0.12)';
+    c.fillRect(V.x, groundY - 232, V.w, 3);
+    /* wainscot: cream panelling along the lower wall */
+    var wg = c.createLinearGradient(0, groundY - 110, 0, groundY);
+    wg.addColorStop(0, '#fff7f1');
+    wg.addColorStop(1, '#f6e2ea');
+    c.fillStyle = wg;
+    c.fillRect(V.x, groundY - 110, V.w, 102);
     c.fillStyle = '#ffffff';
-    var off = -(camX * 0.5) % 56;
-    for (var x = V.x + off - 56; x < V.x + V.w; x += 56) c.fillRect(x, V.y, 22, groundY - V.y);
-    c.restore();
-    /* picture rail and skirting */
-    c.fillStyle = 'rgba(255,255,255,0.7)';
-    c.fillRect(V.x, groundY - 236, V.w, 6);
+    c.fillRect(V.x, groundY - 114, V.w, 6);
+    c.fillStyle = 'rgba(74,42,64,0.1)';
+    c.fillRect(V.x, groundY - 108, V.w, 2);
+    /* panel frames, scrolling with the world */
+    var poff = -(camX % 160);
+    c.strokeStyle = 'rgba(226, 85, 154, 0.22)';
+    c.lineWidth = 2;
+    for (var px = V.x + poff - 160; px < V.x + V.w + 160; px += 160) {
+      E.roundRect(c, px + 14, groundY - 96, 132, 70, 6);
+      c.stroke();
+    }
+    /* skirting */
     c.fillStyle = PAL.floorDark;
     c.fillRect(V.x, groundY - 8, V.w, 8);
     c.fillStyle = 'rgba(255,255,255,0.5)';
     c.fillRect(V.x, groundY - 8, V.w, 2);
+  }
+
+  /* A small crystal chandelier for every other ceiling light. */
+  function drawChandelier(c, x, y, t) {
+    var tw = 0.8 + Math.sin(t / 17 + x) * 0.2;
+    c.strokeStyle = PAL.ink; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(x, y - 60); c.lineTo(x, y - 22); c.stroke();
+    var g = c.createRadialGradient(x, y, 6, x, y, 56);
+    g.addColorStop(0, 'rgba(255, 240, 190, ' + (0.5 * tw) + ')');
+    g.addColorStop(1, 'rgba(255, 240, 190, 0)');
+    c.fillStyle = g;
+    c.fillRect(x - 56, y - 56, 112, 112);
+    /* arms and candles */
+    E.fillEllipse(c, x, y - 2, 30, 8, PAL.gold);
+    for (var i = -2; i <= 2; i++) {
+      var cx = x + i * 13;
+      E.fillRound(c, cx - 2.5, y - 16, 5, 14, 2, '#fff6ec');
+      E.fillEllipse(c, cx, y - 19, 3, 4.5, '#ffe28a', false);
+      E.fillEllipse(c, cx, y - 20, 1.4, 2.2, '#ffffff', false);
+    }
+    /* crystal drops */
+    for (var k = -3; k <= 3; k++) {
+      var dx = x + k * 9, dy = y + 8 + (k % 2 === 0 ? 6 : 0);
+      E.fillPath(c, [[dx, dy - 3], [dx + 3, dy + 2], [dx, dy + 8], [dx - 3, dy + 2]], 'rgba(255,255,255,0.85)', true, false);
+      c.strokeStyle = 'rgba(74,42,64,0.35)'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(dx, dy - 3); c.lineTo(dx + 3, dy + 2); c.lineTo(dx, dy + 8); c.lineTo(dx - 3, dy + 2); c.closePath(); c.stroke();
+    }
+    E.fillEllipse(c, x, y - 22, 5, 5, PAL.gold);
+  }
+
+  /* Framed portrait of a model on the wall between windows. */
+  var PORTRAIT_LOOKS = null;
+  function portraitLook(n) {
+    if (!PORTRAIT_LOOKS) {
+      PORTRAIT_LOOKS = [];
+      var rnd = E.seeded(777);
+      for (var i = 0; i < 8; i++) PORTRAIT_LOOKS.push(E.randomLook(rnd));
+    }
+    return PORTRAIT_LOOKS[((n % 8) + 8) % 8];
+  }
+  function drawPortrait(c, x, y, n) {
+    E.fillEllipse(c, x, y, 34, 42, PAL.gold);
+    E.fillEllipse(c, x, y, 29, 37, '#ffffff', false);
+    E.drawLookTile(c, x, y, 70, portraitLook(n), 'hair', { round: true, bgTop: '#fff5fa', bgBot: '#ffd9ea' });
+    c.beginPath(); c.ellipse(x, y, 29, 37, 0, 0, Math.PI * 2); E.ink(c, 1.5);
+    /* little bow on top of the frame */
+    E.fillEllipse(c, x - 6, y - 46, 5, 3.5, PAL.pinkDeep);
+    E.fillEllipse(c, x + 6, y - 46, 5, 3.5, PAL.pinkDeep);
+    E.fillEllipse(c, x, y - 46, 2.2, 2.2, PAL.sun, false);
   }
 
   function drawWindow(c, x, y) {
@@ -97,12 +182,16 @@
     }
   }
 
-  function drawLights(c, camX, t) {
+  function drawLights(c, camX, t, menu) {
     var V = view();
     var span = 190;
     var start = Math.floor((camX + V.x) / span) * span - span;
     for (var wx = start; wx < camX + V.x + V.w + span; wx += span) {
       var x = wx - camX + 95, y = V.y + 62;
+      var k = Math.round(wx / span);
+      if (k % 2 === 0) { drawChandelier(c, x, y + 14, t); continue; }
+      /* a framed portrait hangs under every plain bulb */
+      if (!menu) drawPortrait(c, x, V.y + 154, k);
       var tw = 0.75 + Math.sin(t / 20 + wx) * 0.25;
       c.strokeStyle = PAL.ink; c.lineWidth = 2;
       c.beginPath(); c.moveTo(x, V.y - 4); c.lineTo(x, y - 14); c.stroke();
@@ -138,15 +227,24 @@
       c.beginPath(); c.moveTo(x, groundY); c.lineTo(x + 30, bottom); c.stroke();
     }
     c.restore();
-    /* runner carpet down the middle of the hall */
-    c.fillStyle = 'rgba(226, 85, 154, 0.35)';
+    /* runner carpet down the middle of the hall, with a woven edge */
+    c.fillStyle = 'rgba(226, 85, 154, 0.38)';
     c.fillRect(V.x, groundY + 10, V.w, 40);
-    c.fillStyle = 'rgba(255, 210, 74, 0.5)';
+    c.fillStyle = 'rgba(255, 210, 74, 0.55)';
     c.fillRect(V.x, groundY + 10, V.w, 3);
     c.fillRect(V.x, groundY + 47, V.w, 3);
+    c.fillStyle = 'rgba(255,255,255,0.18)';
+    var coff = -(camX % 40);
+    for (var cx = V.x + coff - 40; cx < V.x + V.w + 40; cx += 40) c.fillRect(cx, groundY + 14, 3, 32);
+    /* a sheen across the polished boards */
+    var sheen = c.createLinearGradient(0, groundY, 0, groundY + 50);
+    sheen.addColorStop(0, 'rgba(255,255,255,0.28)');
+    sheen.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = sheen;
+    c.fillRect(V.x, groundY, V.w, 50);
   }
 
-  function drawBackdrop(c, camX, t, groundY, winShift) {
+  function drawBackdrop(c, camX, t, groundY, winShift, menu) {
     var V = view();
     drawWall(c, camX, groundY);
     /* windows between the stations, parallax 0.85. winShift nudges the
@@ -157,7 +255,7 @@
     for (var wx = start; wx < camX * 0.85 + V.x + V.w + span; wx += span) {
       drawWindow(c, wx - camX * 0.85 + off, groundY - 226);
     }
-    drawLights(c, camX, t);
+    drawLights(c, camX, t, menu);
     drawBunting(c, camX, t);
     drawFloor(c, camX, groundY);
   }
@@ -211,24 +309,51 @@
     E.fillRound(c, x - w / 2 - 4, y - 5, w + 8, 8, 4, E.shade(col, -18));
   }
 
+  function drawBoothProps(c, st, x, groundY) {
+    /* a vase of flowers, a little bell, and a stack of hat boxes */
+    E.fillRound(c, x + 40, groundY - 92, 16, 22, 4, '#ffffff');
+    E.fillRound(c, x + 42, groundY - 92, 12, 4, 2, st.hue, false);
+    c.strokeStyle = '#3e9b5a'; c.lineWidth = 2; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(x + 48, groundY - 92); c.lineTo(x + 44, groundY - 108); c.moveTo(x + 48, groundY - 92); c.lineTo(x + 52, groundY - 110); c.moveTo(x + 48, groundY - 92); c.lineTo(x + 48, groundY - 112); c.stroke();
+    E.fillEllipse(c, x + 44, groundY - 110, 4, 4, PAL.pink, false);
+    E.fillEllipse(c, x + 52, groundY - 112, 4, 4, PAL.sun, false);
+    E.fillEllipse(c, x + 48, groundY - 114, 4, 4, PAL.lavender, false);
+    E.fillEllipse(c, x + 44, groundY - 110, 1.4, 1.4, PAL.sun, false);
+    E.fillEllipse(c, x + 52, groundY - 112, 1.4, 1.4, PAL.coral, false);
+    E.fillEllipse(c, x + 48, groundY - 114, 1.4, 1.4, '#ffffff', false);
+    /* bell */
+    E.fillEllipse(c, x + 66, groundY - 74, 4, 4, PAL.gold);
+    E.fillRound(c, x + 60, groundY - 80, 12, 8, 2, PAL.gold);
+    /* hat boxes */
+    E.fillRound(c, x - 66, groundY - 86, 30, 16, 4, E.shade(st.hue, 30));
+    E.fillRound(c, x - 62, groundY - 100, 26, 14, 4, E.shade(st.hue, 55));
+    E.fillRound(c, x - 54, groundY - 101, 4, 30, 1.5, PAL.pinkDeep, false);
+    E.fillEllipse(c, x - 52, groundY - 104, 3, 2.4, PAL.pinkDeep, false);
+    E.fillEllipse(c, x - 48, groundY - 104, 3, 2.4, PAL.pinkDeep, false);
+  }
+
   function drawStation(c, st, groundY, t, near) {
     var x = st.x;
     var bob = Math.sin(t / 18 + st.x) * 2;
-    /* back board */
+    E.softShadow(c, x, groundY + 2, 110, 10, 0.2);
+
+    /* back board with a lit side */
     E.fillRound(c, x - 78, groundY - 196, 156, 152, 10, '#ffffff');
     c.save();
     E.roundRect(c, x - 74, groundY - 192, 148, 144, 8);
     c.clip();
-    var g = c.createLinearGradient(0, groundY - 192, 0, groundY - 48);
-    g.addColorStop(0, E.shade(st.hue, 70));
-    g.addColorStop(1, E.shade(st.hue, 40));
+    var g = c.createLinearGradient(x - 74, 0, x + 74, 0);
+    g.addColorStop(0, E.shade(st.hue, 75));
+    g.addColorStop(0.5, E.shade(st.hue, 55));
+    g.addColorStop(1, E.shade(st.hue, 38));
     c.fillStyle = g;
     c.fillRect(x - 74, groundY - 192, 148, 144);
-    /* confetti dots */
     var rnd = E.seeded(st.x);
     for (var d = 0; d < 14; d++) {
       E.fillEllipse(c, x - 70 + rnd() * 140, groundY - 188 + rnd() * 136, 2 + rnd() * 2, 2 + rnd() * 2, 'rgba(255,255,255,0.7)', false);
     }
+    /* a shelf with little bottles */
+    E.fillRound(c, x - 70, groundY - 74, 140, 5, 2, E.shade(st.hue, -10), false);
     c.restore();
     E.roundRect(c, x - 74, groundY - 192, 148, 144, 8);
     E.ink(c, 2);
@@ -236,33 +361,48 @@
     /* the display: a round mirror showing what this station changes */
     var mr = 44;
     var my = groundY - 128 + bob;
+    E.softShadow(c, x + 4, my + 8, mr + 6, mr + 6, 0.12);
     E.fillEllipse(c, x, my, mr + 6, mr + 6, PAL.gold);
     E.fillEllipse(c, x, my, mr + 2, mr + 2, '#ffffff', false);
     var sample = stationSample(st);
     E.drawLookTile(c, x, my, mr * 2, sample, st.id, { round: true, t: t });
     c.beginPath(); c.arc(x, my, mr, 0, Math.PI * 2); E.ink(c, 2);
-    /* glint */
     c.save(); c.globalAlpha = 0.45; E.fillEllipse(c, x - 16, my - 22, 9, 4, '#ffffff', false); c.restore();
+    /* gem studs round the frame */
+    for (var gs = 0; gs < 8; gs++) {
+      var ga = gs * Math.PI / 4 + Math.PI / 8;
+      E.fillEllipse(c, x + Math.cos(ga) * (mr + 3), my + Math.sin(ga) * (mr + 3), 2.2, 2.2, gs % 2 ? PAL.pink : '#ffffff', false);
+    }
 
-    /* counter */
+    /* counter: striped front, shaded end, wooden top */
     E.fillRound(c, x - 72, groundY - 62, 144, 62, 6, st.hue);
     c.save();
     E.roundRect(c, x - 72, groundY - 62, 144, 62, 6); c.clip();
     c.fillStyle = 'rgba(255,255,255,0.35)';
     for (var sx = x - 66; sx < x + 72; sx += 24) c.fillRect(sx, groundY - 62, 10, 62);
+    var cg = c.createLinearGradient(x - 72, 0, x + 72, 0);
+    cg.addColorStop(0, 'rgba(255,255,255,0.18)');
+    cg.addColorStop(0.7, 'rgba(0,0,0,0)');
+    cg.addColorStop(1, 'rgba(74,42,64,0.18)');
+    c.fillStyle = cg;
+    c.fillRect(x - 72, groundY - 62, 144, 62);
     c.restore();
+    E.roundRect(c, x - 72, groundY - 62, 144, 62, 6); E.ink(c, 2);
     E.fillRound(c, x - 80, groundY - 70, 160, 14, 5, PAL.wood);
-    c.fillStyle = 'rgba(255,255,255,0.4)'; c.fillRect(x - 78, groundY - 68, 156, 3);
-    /* little things on the counter */
-    E.fillRound(c, x + 44, groundY - 84, 14, 14, 3, PAL.cream);
-    E.fillEllipse(c, x + 51, groundY - 86, 5, 3, st.hue, false);
-    E.fillEllipse(c, x - 50, groundY - 80, 7, 7, PAL.sun);
-    E.fillEllipse(c, x - 50, groundY - 80, 2.5, 2.5, PAL.coral, false);
+    c.fillStyle = 'rgba(255,255,255,0.45)'; c.fillRect(x - 78, groundY - 68, 156, 3);
+    c.fillStyle = 'rgba(74,42,64,0.15)'; c.fillRect(x - 78, groundY - 59, 156, 2);
+    drawBoothProps(c, st, x, groundY);
 
     drawAwning(c, x, groundY - 212, 176, st.hue, t);
+    /* fairy lights under the awning */
+    for (var fl = 0; fl < 7; fl++) {
+      var lx = x - 72 + fl * 24, on = ((fl + Math.floor(t / 12)) % 3) === 0;
+      E.fillEllipse(c, lx, groundY - 186 + Math.sin(fl * 1.3) * 2, 2.6, 2.6, on ? '#fff6c8' : PAL.sun, false);
+    }
 
     /* sign */
     var label = T(st.labelKey);
+    c.save(); c.globalAlpha = 0.2; E.fillRound(c, x - 70, groundY - 232, 140, 26, 8, PAL.ink, false); c.restore();
     E.fillRound(c, x - 70, groundY - 236, 140, 26, 8, PAL.cream);
     c.fillStyle = PAL.ink;
     c.textAlign = 'center';
@@ -271,13 +411,12 @@
     c.fillText(label, x, groundY - 223);
 
     if (near) {
-      /* sparkle ring when she can tap */
       c.save();
       c.globalAlpha = 0.5 + Math.sin(t / 6) * 0.3;
       c.fillStyle = '#ffffff';
-      for (var s = 0; s < 5; s++) {
-        var a = t / 40 + s * 1.26;
-        E.star(c, x + Math.cos(a) * 70, groundY - 128 + Math.sin(a) * 60, 3 + Math.sin(t / 7 + s) * 1.5);
+      for (var s2 = 0; s2 < 5; s2++) {
+        var a = t / 40 + s2 * 1.26;
+        E.star(c, x + Math.cos(a) * 70, groundY - 128 + Math.sin(a) * 60, 3 + Math.sin(t / 7 + s2) * 1.5);
       }
       c.restore();
     }
@@ -299,6 +438,7 @@
   }
 
   function drawPlant(c, x, groundY) {
+    E.softShadow(c, x, groundY + 2, 22, 5, 0.18);
     E.fillRound(c, x - 14, groundY - 30, 28, 30, 5, PAL.coral);
     E.fillRound(c, x - 16, groundY - 34, 32, 8, 3, E.shade(PAL.coral, -15));
     c.strokeStyle = '#3e9b5a'; c.lineWidth = 3; c.lineCap = 'round';
@@ -319,11 +459,13 @@
     E.star(c, x + 26, y + 80, 4);
   }
   function drawMannequinStand(c, x, groundY, n, t) {
+    E.softShadow(c, x, groundY + 2, 26, 6, 0.18);
     E.fillEllipse(c, x, groundY - 2, 20, 6, PAL.woodDark);
     E.fillRound(c, x - 3, groundY - 26, 6, 24, 2, PAL.woodDark);
     E.drawCharacter(c, x, groundY - 22, decorLook(n), 0, n % 2 ? -1 : 1, 1.15, false, 0, { noShadow: true, t: t });
   }
   function drawLamp(c, x, groundY, t) {
+    E.softShadow(c, x, groundY + 2, 20, 5, 0.18);
     E.fillEllipse(c, x, groundY - 2, 16, 5, PAL.woodDark);
     E.fillRound(c, x - 2.5, groundY - 150, 5, 148, 2, PAL.gold);
     var tw = 0.8 + Math.sin(t / 15) * 0.2;
@@ -335,6 +477,7 @@
     E.fillRound(c, x - 28, groundY - 152, 56, 5, 2, PAL.gold, false);
   }
   function drawMirror(c, x, groundY) {
+    E.softShadow(c, x, groundY + 2, 26, 6, 0.18);
     E.fillEllipse(c, x, groundY - 2, 22, 6, PAL.woodDark);
     E.fillRound(c, x - 3, groundY - 30, 6, 28, 2, PAL.gold);
     E.fillEllipse(c, x, groundY - 110, 36, 84, PAL.gold);
@@ -432,6 +575,17 @@
       E.fillEllipse(c, x - 50, yy, 4, 4, on2 ? '#fff6c8' : PAL.sun, false);
       E.fillEllipse(c, x + 50, yy, 4, 4, on2 ? PAL.sun : '#fff6c8', false);
     }
+    /* velvet rope posts either side of the carpet */
+    for (var ps = -1; ps <= 1; ps += 2) {
+      var px = x + ps * 82;
+      E.fillEllipse(c, px, groundY + 4, 12, 4, PAL.woodDark);
+      E.fillRound(c, px - 2.5, groundY - 46, 5, 50, 2, PAL.gold);
+      E.fillEllipse(c, px, groundY - 48, 5, 5, PAL.gold);
+    }
+    c.strokeStyle = PAL.pinkDeep; c.lineWidth = 4; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(x - 82, groundY - 44); c.quadraticCurveTo(x - 60, groundY - 20, x - 50, groundY - 24); c.stroke();
+    c.beginPath(); c.moveTo(x + 82, groundY - 44); c.quadraticCurveTo(x + 60, groundY - 20, x + 50, groundY - 24); c.stroke();
+    E.softShadow(c, x, groundY + 2, 70, 7, 0.18);
     /* sign */
     var label = T('runwayDoorSign');
     E.fillRound(c, x - 64, groundY - 236, 128, 30, 10, PAL.pinkDeep);
@@ -467,7 +621,8 @@
   var AUDIENCE = (function () {
     var rnd = E.seeded(99);
     var rows = [];
-    var cols = [PAL.pink, PAL.lavender, PAL.mint, PAL.sky, PAL.sun, PAL.coral, '#ffffff'];
+    var cols = [PAL.pink, PAL.lavender, PAL.mint, PAL.sky, PAL.sun, PAL.coral, '#ffffff', '#ffd9a8'];
+    var poses = ['none', 'arms', 'phone', 'stick', 'none', 'wave', 'stick', 'none'];
     for (var r = 0; r < 3; r++) {
       for (var i = 0; i < 16; i++) {
         rows.push({
@@ -475,16 +630,89 @@
           y: RUNWAY.audienceY + r * 30 + rnd() * 6,
           r: 13 + r * 2 + rnd() * 3,
           col: cols[Math.floor(rnd() * cols.length)],
-          stick: rnd() < 0.6,
+          pose: poses[Math.floor(rnd() * poses.length)],
+          hairStyle: ['short', 'bun', 'pony', 'long'][Math.floor(rnd() * 4)],
           ph: rnd() * 6.28,
           skin: Game.SKIN_COLORS[Math.floor(rnd() * Game.SKIN_COLORS.length)],
           hair: Game.HAIR_COLORS[Math.floor(rnd() * Game.HAIR_COLORS.length)],
           row: r,
+          flashAt: Math.floor(rnd() * 200),
         });
       }
     }
     return rows;
   })();
+
+  var BALLOONS = (function () {
+    var out = [], rnd = E.seeded(5);
+    var cols = [PAL.pink, PAL.sun, PAL.mint, PAL.lavender, PAL.sky, PAL.coral];
+    for (var side = 0; side < 2; side++) {
+      for (var i = 0; i < 4; i++) {
+        out.push({ x: (side ? 760 : 40) + (rnd() - 0.5) * 36, y: 150 + rnd() * 60, r: 12 + rnd() * 5,
+                   col: cols[Math.floor(rnd() * cols.length)], ph: rnd() * 6.28, side: side });
+      }
+    }
+    return out;
+  })();
+
+  function drawSpectator(c, p, t, ex) {
+    var bob = Math.max(0, Math.sin(t / (9 - p.row) + p.ph)) * (3 + ex * 7);
+    var px = p.x, py = p.y - bob;
+    var dim = p.row === 0 ? 0 : p.row === 1 ? -18 : -34;
+    var skin = E.shade(p.skin, dim), hair = E.shade(p.hair, dim), shirt = E.shade(p.col, dim);
+    /* arms up / waving behind the body */
+    if (p.pose === 'arms' || p.pose === 'wave') {
+      var sway = Math.sin(t / 8 + p.ph) * 0.25;
+      for (var sd = -1; sd <= 1; sd += 2) {
+        if (p.pose === 'wave' && sd < 0) continue;
+        c.save();
+        c.translate(px + sd * p.r * 1.1, py + p.r * 0.9);
+        c.rotate(sd * (0.5 + sway));
+        E.fillRound(c, -3.5, -p.r * 2.2, 7, p.r * 2.2, 3.5, skin, false);
+        E.fillEllipse(c, 0, -p.r * 2.2, 5, 5, skin, false);
+        c.restore();
+      }
+    }
+    /* shoulders */
+    E.fillRound(c, px - p.r * 1.3, py + p.r * 0.5, p.r * 2.6, p.r * 2.2, p.r, shirt, false);
+    /* long hair behind the head */
+    if (p.hairStyle === 'long') E.fillRound(c, px - p.r - 2, py - p.r * 0.6, p.r * 2 + 4, p.r * 1.9, p.r * 0.6, hair, false);
+    /* head */
+    E.fillEllipse(c, px, py - p.r * 0.2, p.r, p.r, skin, false);
+    c.beginPath(); c.arc(px, py - p.r * 0.4, p.r + 1, Math.PI, Math.PI * 2); c.closePath();
+    c.fillStyle = hair; c.fill();
+    if (p.hairStyle === 'bun') E.fillEllipse(c, px, py - p.r * 1.45, p.r * 0.45, p.r * 0.45, hair, false);
+    if (p.hairStyle === 'pony') E.fillEllipse(c, px + p.r * 0.9, py - p.r * 0.6, p.r * 0.35, p.r * 0.8, hair, false);
+    /* glow stick or phone held up */
+    if (p.pose === 'stick' && p.row < 2) {
+      var sa = Math.sin(t / 10 + p.ph) * 0.5;
+      c.save();
+      c.translate(px + p.r * 1.3, py + p.r * 0.6);
+      c.rotate(sa);
+      E.fillRound(c, -2.5, -34, 5, 36, 2.5, p.col, false);
+      c.save(); c.globalAlpha = 0.35; E.fillRound(c, -5, -36, 10, 40, 5, p.col, false); c.restore();
+      c.restore();
+    } else if (p.pose === 'phone' && p.row < 2) {
+      var phx = px + p.r * 1.2, phy = py - p.r * 0.9;
+      E.fillRound(c, phx - 4, phy - 7, 8, 14, 2, '#3a2a40', false);
+      E.fillRound(c, phx - 3, phy - 6, 6, 11, 1, '#9fd9ff', false);
+      if (((t + p.flashAt) % 160) < 4) {
+        c.save(); c.globalAlpha = 0.9; c.fillStyle = '#ffffff'; E.star(c, phx, phy - 9, 9); c.restore();
+      }
+    }
+  }
+
+  function drawBalloons(c, t) {
+    for (var i = 0; i < BALLOONS.length; i++) {
+      var b = BALLOONS[i];
+      var by = b.y + Math.sin(t / 40 + b.ph) * 6, bx = b.x + Math.sin(t / 55 + b.ph) * 3;
+      c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = 1.2;
+      c.beginPath(); c.moveTo(bx, by + b.r); c.quadraticCurveTo(bx + 6, by + b.r + 40, bx - 2, RUNWAY.stageTop); c.stroke();
+      E.fillEllipse(c, bx, by, b.r, b.r * 1.15, b.col);
+      E.fillEllipse(c, bx - b.r * 0.35, by - b.r * 0.4, b.r * 0.3, b.r * 0.42, 'rgba(255,255,255,0.55)', false);
+      E.fillPath(c, [[bx - 3, by + b.r * 1.15], [bx + 3, by + b.r * 1.15], [bx, by + b.r * 1.15 + 4]], E.shade(b.col, -15), true, false);
+    }
+  }
 
   function drawStage(c, t, excitement) {
     var V = view();
@@ -529,6 +757,12 @@
       c.fillRect(x, curtainTop, 26, curtainBot - curtainTop);
     }
     c.restore();
+    /* a soft pool of light where the models pose */
+    var pool = c.createRadialGradient(RUNWAY.poseX, 200, 10, RUNWAY.poseX, 200, 170);
+    pool.addColorStop(0, 'rgba(255, 230, 250, 0.28)');
+    pool.addColorStop(1, 'rgba(255, 230, 250, 0)');
+    c.fillStyle = pool;
+    c.fillRect(RUNWAY.poseX - 170, 30, 340, 340);
     E.fillRound(c, V.x, curtainBot - 8, V.w, 10, 0, PAL.gold, false);
     /* big glittery name */
     c.save();
@@ -555,6 +789,19 @@
       var on = ((i + Math.floor(t / 9)) % 3) === 0;
       E.fillEllipse(c, lx, 48 + Math.sin(i * 0.8) * 6, 3, 3, on ? '#fff6c8' : 'rgba(255,246,200,0.35)', false);
     }
+    /* side drapes with gold tie-backs */
+    for (var side = -1; side <= 1; side += 2) {
+      var dx = side < 0 ? V.x : V.x + V.w - 54;
+      var dg = c.createLinearGradient(dx, 0, dx + 54, 0);
+      dg.addColorStop(0, side < 0 ? '#b03a7a' : '#7a2060');
+      dg.addColorStop(1, side < 0 ? '#7a2060' : '#b03a7a');
+      c.fillStyle = dg;
+      c.fillRect(dx, V.y, 54, RUNWAY.stageTop - V.y);
+      c.strokeStyle = 'rgba(0,0,0,0.18)'; c.lineWidth = 2;
+      for (var k = 1; k < 4; k++) { c.beginPath(); c.moveTo(dx + k * 13, V.y); c.lineTo(dx + k * 13, RUNWAY.stageTop); c.stroke(); }
+      E.fillRound(c, dx - 4, 190, 62, 12, 6, PAL.gold);
+    }
+    drawBalloons(c, t);
 
     /* catwalk slab */
     var ST = RUNWAY.stageTop, SB = RUNWAY.stageBottom;
@@ -567,39 +814,35 @@
     c.fillRect(V.x, ST + 8, V.w, SB - ST - 16);
     c.fillStyle = 'rgba(255,255,255,0.35)';
     c.fillRect(V.x, ST + 8, V.w, 3);
+    /* glossy sheen on the runway */
+    var sheen = c.createLinearGradient(0, ST + 8, 0, SB - 8);
+    sheen.addColorStop(0, 'rgba(255,255,255,0.22)');
+    sheen.addColorStop(0.5, 'rgba(255,255,255,0.02)');
+    sheen.addColorStop(1, 'rgba(255,255,255,0.1)');
+    c.fillStyle = sheen;
+    c.fillRect(V.x, ST + 8, V.w, SB - ST - 16);
     c.fillStyle = '#c9a8c0';
     c.fillRect(V.x, SB, V.w, 10);
+    c.fillStyle = 'rgba(0,0,0,0.18)';
+    c.fillRect(V.x, SB + 10, V.w, 6);
     /* footlights */
     for (var f = 0; f < 20; f++) {
       var fx = V.x + (f + 0.5) * (V.w / 20);
       var fon = ((f + Math.floor(t / 7)) % 4) === 0;
       E.fillEllipse(c, fx, SB + 6, 4, 3, fon ? '#fff6c8' : PAL.sun, false);
+      if (fon) { c.save(); c.globalAlpha = 0.35; E.fillEllipse(c, fx, SB + 4, 10, 7, '#fff6c8', false); c.restore(); }
     }
 
     /* audience in the foreground, bouncing with excitement */
     var ex = excitement || 0;
-    for (var a = 0; a < AUDIENCE.length; a++) {
-      var p = AUDIENCE[a];
-      var bob = Math.max(0, Math.sin(t / (9 - p.row) + p.ph)) * (3 + ex * 7);
-      var px = p.x, py = p.y - bob;
-      var shade = p.row === 0 ? 0 : p.row === 1 ? -18 : -34;
-      /* shoulders */
-      E.fillRound(c, px - p.r * 1.3, py + p.r * 0.5, p.r * 2.6, p.r * 2.2, p.r, E.shade(p.col, shade), false);
-      /* head */
-      E.fillEllipse(c, px, py - p.r * 0.2, p.r, p.r, E.shade(p.skin, shade), false);
-      c.beginPath(); c.arc(px, py - p.r * 0.4, p.r + 1, Math.PI, Math.PI * 2); c.closePath();
-      c.fillStyle = E.shade(p.hair, shade); c.fill();
-      if (p.stick && p.row < 2) {
-        var sa = Math.sin(t / 10 + p.ph) * 0.5;
-        c.save();
-        c.translate(px + p.r * 1.3, py + p.r * 0.6);
-        c.rotate(sa);
-        E.fillRound(c, -2.5, -34, 5, 36, 2.5, p.col, false);
-        c.save(); c.globalAlpha = 0.35; E.fillRound(c, -5, -36, 10, 40, 5, p.col, false); c.restore();
-        c.restore();
-      }
+    /* the crowd repeats every 864px so it fills the tablet bezel too */
+    for (var rep = Math.floor(V.x / 864) - 1; rep * 864 < V.x + V.w + 60; rep++) {
+      if (rep * 864 + 900 < V.x) continue;
+      c.save();
+      c.translate(rep * 864, 0);
+      for (var a = 0; a < AUDIENCE.length; a++) drawSpectator(c, AUDIENCE[a], t, ex);
+      c.restore();
     }
-    /* front-row silhouette darkening so the models pop */
     var fade = c.createLinearGradient(0, RUNWAY.audienceY + 40, 0, V.y + V.h);
     fade.addColorStop(0, 'rgba(26,12,38,0)');
     fade.addColorStop(1, 'rgba(26,12,38,0.7)');
@@ -632,6 +875,7 @@
     drawRunwayDoor: drawRunwayDoor,
     drawStage: drawStage,
     drawFlash: drawFlash,
+    drawBalloons: drawBalloons,
     stationSample: stationSample,
     RUNWAY: RUNWAY,
   };

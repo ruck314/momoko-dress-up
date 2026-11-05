@@ -296,6 +296,7 @@
       c.rotate(0.08 * m.facing);
       c.translate(-m.x, -m.y);
     }
+    E.drawReflection(c, m.x, m.y, m.look, m.frame, m.facing, 1.45, 0.22, RW().stageBottom - m.y - 2, 'rgba(206,74,140,1)', { pose: m.pose });
     E.drawCharacter(c, m.x, m.y, m.look, m.frame, m.facing, 1.45, m.blink, hop, { pose: m.pose, t: t });
     c.restore();
   }

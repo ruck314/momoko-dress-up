@@ -55,8 +55,8 @@
     var k = skillKey();
     var d;
     if (!ok) d = -0.6;
-    else if (tries === 1) d = 0.35;
-    else if (tries === 2) d = 0.12;
+    else if (tries === 1) d = 0.3;
+    else if (tries === 2) d = 0.1;
     else d = -0.1;
     p[k] = Math.max(0, Math.min(4, p[k] + d));
     if (ok) { p.solved++; p.stars += (tries === 1 ? 2 : 1); }
@@ -86,12 +86,19 @@
     return n;
   }
 
+  /* Difficulty ladder, pitched at the start of 2nd grade and climbing
+     to the end of it:
+       0  add / subtract within 100, no regrouping; ×1 and ×2
+       1  within 100 with regrouping; 3-digit + 2-digit, no carry; ×2–5
+       2  3-digit ± 3-digit, at most one carry / borrow; ×2–6
+       3  two carries / borrows; ×3–9
+       4  borrowing across a zero, answers up to 999; ×6–9 */
   function makeMult(level) {
     var a, b;
     switch (level) {
-      case 0: a = range(1, 3); b = range(1, 5); break;
-      case 1: a = range(2, 5); b = range(2, 6); break;
-      case 2: a = range(2, 7); b = range(2, 9); break;
+      case 0: a = range(1, 2); b = range(1, 5); break;
+      case 1: a = range(2, 5); b = range(1, 5); break;
+      case 2: a = range(2, 6); b = range(2, 9); break;
       case 3: a = range(3, 9); b = range(3, 9); break;
       default: a = range(6, 9); b = range(6, 9); break;
     }
@@ -101,32 +108,58 @@
 
   /* Pull random pairs until the carry / borrow count matches the level. */
   function makeAdd(level) {
+    var a = 0, b = 0, i;
+    if (level <= 1) {
+      /* within 100: two 2-digit numbers (level 1 may regroup once) */
+      for (i = 0; i < 300; i++) {
+        a = range(10, 89); b = range(10, 89);
+        if (a + b > 99) continue;
+        var c0 = carries(a, b);
+        if (level === 0 ? c0 === 0 : c0 === 1) break;
+      }
+      if (a + b > 99) { a = 23; b = 45; }
+      if (level === 1 && Math.random() < 0.4) {
+        /* or a 3-digit plus 2-digit with no carry, to meet the hundreds */
+        for (i = 0; i < 300; i++) {
+          a = range(100, 899); b = range(10, 99);
+          if (a + b <= 999 && carries(a, b) === 0) break;
+        }
+      }
+      return { kind: 'math', text: a + ' + ' + b, answers: [String(a + b)], answer: String(a + b) };
+    }
     var want = [0, 0, 1, 2, 2][level];
-    var bDigits = level === 0 ? 2 : 3;
-    var a = 0, b = 0;
-    for (var i = 0; i < 300; i++) {
+    for (i = 0; i < 300; i++) {
       a = range(100, 899);
-      b = bDigits === 2 ? range(10, 99) : range(100, 899);
+      b = range(100, 899);
       if (a + b > 999) continue;
       var c = carries(a, b);
-      if (level === 4 ? c >= 1 : c === want) break;
+      if (level === 4 ? c >= 1 : (level === 2 ? c <= 1 : c === want)) break;
     }
     if (a + b > 999) { a = 123; b = 45; }
     return { kind: 'math', text: a + ' + ' + b, answers: [String(a + b)], answer: String(a + b) };
   }
 
   function makeSub(level) {
+    var a = 0, b = 0, i;
+    if (level <= 1) {
+      for (i = 0; i < 300; i++) {
+        a = range(20, 99); b = range(10, 89);
+        if (b > a) continue;
+        var b0 = borrows(a, b);
+        if (level === 0 ? b0 === 0 : b0 === 1) break;
+      }
+      if (b > a) { a = 68; b = 23; }
+      return { kind: 'math', text: a + ' − ' + b, answers: [String(a - b)], answer: String(a - b) };
+    }
     var want = [0, 0, 1, 2, 2][level];
-    var bDigits = level === 0 ? 2 : 3;
-    var a = 0, b = 0;
-    for (var i = 0; i < 300; i++) {
+    for (i = 0; i < 300; i++) {
       a = range(100, 999);
-      b = bDigits === 2 ? range(10, 99) : range(100, 899);
+      b = range(100, 899);
       if (b > a) continue;
       /* top level: borrowing across a zero, the trickiest second-grade case */
       if (level === 4 && digits(a)[1] !== 0 && Math.random() < 0.7) continue;
       var br = borrows(a, b);
-      if (level === 4 ? br >= 1 : br === want) break;
+      if (level === 4 ? br >= 1 : (level === 2 ? br <= 1 : br === want)) break;
     }
     if (b > a) { a = 456; b = 123; }
     return { kind: 'math', text: a + ' − ' + b, answers: [String(a - b)], answer: String(a - b) };
@@ -134,8 +167,10 @@
 
   function makeMath(level) {
     var r = Math.random();
-    if (r < 0.4) return makeMult(level);
-    if (r < 0.7) return makeAdd(level);
+    /* multiplication is new at this age, so it comes in gradually */
+    var multShare = [0.2, 0.3, 0.4, 0.4, 0.4][level];
+    if (r < multShare) return makeMult(level);
+    if (r < multShare + (1 - multShare) / 2) return makeAdd(level);
     return makeSub(level);
   }
 
@@ -185,19 +220,33 @@
     return { kind: 'kanji', text: w2.w, answers: w2.r.slice(), answer: w2.r[0] };
   }
 
+  /* The grade-1 kanji every child has down cold by the start of 2nd
+     grade: numbers, days of the week, and the simplest pictographs. */
+  var EASY_G1 = '一二三四五六七八九十百千日月火水木金土山川田人口目耳手足大小上下中子女男犬花草空雨';
+  function easyG1() {
+    var out = [];
+    for (var i = 0; i < Game.KANJI.length; i++) if (Game.KANJI[i].g === 1 && EASY_G1.indexOf(Game.KANJI[i].k) >= 0) out.push(Game.KANJI[i]);
+    return out;
+  }
+
+  /* Ladder:  0 easy grade-1 kanji, any reading
+              1 all grade-1 kanji, any reading
+              2 grade-1 words, and grade-2 kanji with any reading
+              3 grade-2 words with okurigana
+              4 grade-2 compounds (on-yomi) */
   function makeKanji(level) {
-    var g1 = kanjiByGrade(1), g2 = kanjiByGrade(2);
+    var g1 = kanjiByGrade(1), g2 = kanjiByGrade(2), e1 = easyG1();
     var p = null, r = Math.random();
     for (var attempt = 0; attempt < 20 && !p; attempt++) {
       switch (level) {
-        case 0: p = bareProblem(pick(g1)); break;
-        case 1: p = r < 0.5 ? bareProblem(pick(g1)) : wordProblem(pick(g1), false); break;
-        case 2: p = r < 0.6 ? bareProblem(pick(g2)) : wordProblem(pick(g1)); break;
+        case 0: p = bareProblem(pick(e1)); break;
+        case 1: p = r < 0.7 ? bareProblem(pick(g1)) : wordProblem(pick(e1), false); break;
+        case 2: p = r < 0.5 ? wordProblem(pick(g1)) : bareProblem(pick(g2)); break;
         case 3: p = r < 0.6 ? wordProblem(pick(g2), false) : bareProblem(pick(g2)); break;
         default: p = r < 0.6 ? wordProblem(pick(g2), true) : wordProblem(pick(g2), false); break;
       }
     }
-    return p || bareProblem(pick(g1));
+    return p || bareProblem(pick(e1));
   }
 
   function makeProblem() {
