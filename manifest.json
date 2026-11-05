@@ -1,0 +1,23 @@
+{
+  "name": "Momoko and Friends Dress Up",
+  "short_name": "Dress Up",
+  "description": "A sparkly dress-up game. Visit every station in the fashion studio, design your look, and win the fashion show!",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#fbe4ef",
+  "theme_color": "#e2559a",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%23e2559a'/><text x='96' y='128' font-size='96' text-anchor='middle' fill='white'>👗</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='64' fill='%23e2559a'/><text x='256' y='340' font-size='256' text-anchor='middle' fill='white'>👗</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

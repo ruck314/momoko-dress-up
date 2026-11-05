@@ -1,0 +1,121 @@
+/* style.css */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #2b1530;
+  font-family: "M PLUS Rounded 1c", sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+
+#game-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#gameCanvas {
+  display: block;
+  background: #2b1530;
+}
+
+#game-center-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 10000;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-family: "M PLUS Rounded 1c", sans-serif;
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffd24a;
+  background: rgba(43, 21, 48, 0.85);
+  border: 1px solid #ff8fc0;
+  border-radius: 6px;
+  text-decoration: none;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Only shown on the title and pause screens (engine.js toggles the
+   class) so it never covers the room tabs, titles or build HUD. */
+#game-center-link.hidden {
+  display: none;
+}
+
+#game-center-link:hover,
+#game-center-link:focus {
+  color: #ffffff;
+  background: rgba(142, 91, 209, 0.95);
+  border-color: #ffd24a;
+  outline: none;
+}
+
+#game-center-link .gcl-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Hide the label on very narrow screens where space is tight */
+@media (max-width: 480px) {
+  #game-center-link .gcl-text {
+    display: none;
+  }
+  #game-center-link {
+    padding: 5px 7px;
+  }
+}
+
+/* Orientation hint for portrait phones/tablets */
+@media (orientation: portrait) and (max-width: 900px) {
+  #rotate-hint {
+    display: flex !important;
+  }
+  #game-container {
+    display: none;
+  }
+  #game-center-link {
+    display: none;
+  }
+}
+
+#rotate-hint {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #2b1530;
+  color: #ffb3d9;
+  font-family: "M PLUS Rounded 1c", sans-serif;
+  font-size: 20px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
+  padding: 24px;
+  z-index: 9999;
+}
+
+#rotate-hint .icon {
+  font-size: 60px;
+}
+
+#rotate-hint .hint-line {
+  line-height: 1.4;
+  max-width: 90%;
+}
+
+#rotate-hint .hint-line-ja {
+  color: #ffd24a;
+  font-size: 18px;
+}
