@@ -13,7 +13,11 @@
   var GAME_X = 0, GAME_Y = 0;
 
   /* Bump alongside CACHE_NAME in sw.js and tag the matching git release. */
-  Game.VERSION = 'v1.4.0';
+  Game.VERSION = 'v1.5.0';
+
+  /* Post-processing switches, all on by default. A slow device (or a
+     test) can turn any of them off without touching the scene code. */
+  Game.FX = Game.FX || { bloom: true, grade: true, vignette: true, frost: true, dof: true };
 
   var canvas, ctx;
 
@@ -293,6 +297,9 @@
   }
 
   var renderedState = null;
+  /* a soft cream wash on every scene change, fading over a third of a
+     second, so screens dissolve into each other instead of cutting */
+  var sceneFade = 0;
   function render() {
     ctx.save();
     var dpr = Math.min(3, window.devicePixelRatio || 1);
@@ -322,6 +329,7 @@
     Game.ui.beginFrame();
     if (state !== renderedState) {
       Game.ui.dropStaleToast();
+      if (renderedState !== null && state !== State.PAUSED && renderedState !== State.PAUSED) sceneFade = 1;
       renderedState = state;
     }
 
@@ -334,10 +342,17 @@
       case State.RUNWAY: Game.runway.draw(ctx); break;
     }
     if (state !== State.PAUSED) {
-      drawBloom(ctx, dpr, state === State.RUNWAY ? 0.26 : 0.16);
-      drawVignette(ctx, state === State.PLAYING || state === State.RUNWAY ? 0.3 : 0.2);
+      if (Game.FX.bloom) drawBloom(ctx, dpr, state === State.RUNWAY ? 0.3 : 0.2);
+      if (Game.FX.grade) drawGrade(ctx, state === State.RUNWAY);
+      if (Game.FX.vignette) drawVignette(ctx, state === State.PLAYING || state === State.RUNWAY ? 0.42 : 0.3);
     }
     if (Game.gate.isOpen()) Game.gate.draw(ctx);
+    if (sceneFade > 0) {
+      var V = Game.ui.VIEW;
+      ctx.fillStyle = 'rgba(255, 246, 236, ' + (sceneFade * sceneFade * 0.95) + ')';
+      ctx.fillRect(V.x, V.y, V.w, V.h);
+      sceneFade = Math.max(0, sceneFade - 0.06);
+    }
 
     ctx.restore();
     Game.ui.endFrame();
@@ -357,13 +372,42 @@
     if (!bloomCanvas) { bloomCanvas = document.createElement('canvas'); bloomCtx = bloomCanvas.getContext('2d'); }
     if (bloomCanvas.width !== bw || bloomCanvas.height !== bh) { bloomCanvas.width = bw; bloomCanvas.height = bh; }
     bloomCtx.clearRect(0, 0, bw, bh);
+    /* knock the mid-tones down on the way in so only the lights, the
+       whites and the sparkles bleed; the shadows stay shadows */
+    bloomCtx.filter = 'brightness(0.84) contrast(1.7) saturate(1.2)';
     bloomCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, bw, bh);
+    bloomCtx.filter = 'none';
     c.save();
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     c.globalCompositeOperation = 'screen';
     c.globalAlpha = alpha;
-    c.filter = 'blur(4px)';
-    c.drawImage(bloomCanvas, 0, 0, bw, bh, -6, -6, CANVAS_W + 12, CANVAS_H + 12);
+    c.filter = 'blur(5px)';
+    c.drawImage(bloomCanvas, 0, 0, bw, bh, -8, -8, CANVAS_W + 16, CANVAS_H + 16);
+    c.restore();
+  }
+
+  /* Colour grade: warm light from above, cool shadow pooling at the
+     floor, and a touch of overlay contrast so the frame stops looking
+     coloured-in. Two gradient fills and nothing else. */
+  function drawGrade(c, stage) {
+    var V = Game.ui.VIEW;
+    c.save();
+    /* one soft-light pass: light stops lift, dark stops deepen, so the
+       same gradient does the split-toning and the contrast */
+    c.globalCompositeOperation = 'soft-light';
+    var g = c.createLinearGradient(0, V.y, 0, V.y + V.h);
+    if (stage) {
+      g.addColorStop(0, 'rgba(255, 150, 210, 0.6)');
+      g.addColorStop(0.5, 'rgba(170, 80, 190, 0.3)');
+      g.addColorStop(1, 'rgba(20, 6, 40, 0.85)');
+    } else {
+      g.addColorStop(0, 'rgba(120, 70, 130, 0.4)');
+      g.addColorStop(0.22, 'rgba(255, 214, 160, 0.45)');
+      g.addColorStop(0.55, 'rgba(255, 230, 235, 0.3)');
+      g.addColorStop(1, 'rgba(70, 30, 110, 0.7)');
+    }
+    c.fillStyle = g;
+    c.fillRect(V.x, V.y, V.w, V.h);
     c.restore();
   }
 
@@ -547,10 +591,25 @@
   var lastTime = 0;
   var accumulator = 0;
 
+  /* Adaptive quality: the frame interval is the one honest measure of
+     cost on a GPU-backed canvas, so after the first seconds settle, a
+     device that cannot hold the frame rate loses the post effects in
+     two steps rather than stuttering through the show. */
+  var frameEma = 16.7, frameCount = 0, fxLevel = 2;
+  function watchFrameRate(delta) {
+    frameCount++;
+    if (frameCount < 120 || delta > 90) return;
+    frameEma += (delta - frameEma) * 0.04;
+    if (frameCount % 240 !== 0 || frameEma < 28) return;
+    if (fxLevel === 2) { Game.FX.grade = false; Game.FX.bloom = false; fxLevel = 1; }
+    else if (fxLevel === 1) { Game.FX.dof = false; Game.FX.frost = false; fxLevel = 0; }
+  }
+
   function gameLoop(timestamp) {
     var delta = timestamp - lastTime;
     lastTime = timestamp;
     if (delta > 100) delta = 100;
+    watchFrameRate(delta);
     accumulator += delta;
     while (accumulator >= FIXED_DT) {
       update();

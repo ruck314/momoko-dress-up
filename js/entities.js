@@ -213,14 +213,48 @@
     c.save();
     pathFn();
     c.clip();
-    c.globalAlpha = 0.14;
-    c.fillStyle = '#2a1030';
-    c.fillRect(5, -90, 70, 140);
-    c.globalAlpha = 0.22;
-    c.fillStyle = '#ffffff';
-    c.fillRect(-75, -90, 68, 140);
+    /* key light from the upper left: a soft sphere of light over the
+       chest falling to a cool shadow down the right flank and hem */
+    var vg = c.createRadialGradient(-6, -26, 2, -2, -20, 34);
+    vg.addColorStop(0, 'rgba(255,255,255,0.32)');
+    vg.addColorStop(0.45, 'rgba(255,255,255,0.08)');
+    vg.addColorStop(0.75, 'rgba(42,16,48,0.06)');
+    vg.addColorStop(1, 'rgba(42,16,48,0.3)');
+    c.fillStyle = vg;
+    c.fillRect(-80, -100, 160, 160);
+    /* rim light along the lit edge */
+    var rg = c.createLinearGradient(-16, 0, -6, 0);
+    rg.addColorStop(0, 'rgba(255,255,255,0.28)');
+    rg.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = rg;
+    c.fillRect(-80, -100, 74, 160);
+    /* bounce light creeping up from the floor */
+    var bg = c.createLinearGradient(0, 12, 0, -6);
+    bg.addColorStop(0, 'rgba(255,214,236,0.22)');
+    bg.addColorStop(1, 'rgba(255,214,236,0)');
+    c.fillStyle = bg;
+    c.fillRect(-80, -8, 160, 24);
     c.restore();
     pathFn();
+    ink(c, inkW || 2);
+  }
+  /* A limb or sleeve: a rounded bar lit down its left side. */
+  function volumeRound(c, x, y, w, h, r, col, inkW) {
+    roundRect(c, x, y, w, h, r);
+    c.fillStyle = col;
+    c.fill();
+    c.save();
+    roundRect(c, x, y, w, h, r);
+    c.clip();
+    var g = c.createLinearGradient(x, 0, x + w, 0);
+    g.addColorStop(0, 'rgba(255,255,255,0.3)');
+    g.addColorStop(0.4, 'rgba(255,255,255,0.04)');
+    g.addColorStop(1, 'rgba(42,16,48,0.26)');
+    c.fillStyle = g;
+    c.fillRect(x, y, w, h);
+    c.restore();
+    roundRect(c, x, y, w, h, r);
+    c.fillStyle = col;
     ink(c, inkW || 2);
   }
   function polyPath(c, pts) {
@@ -324,12 +358,26 @@
       c.fillStyle = col;
       c.fill();
       c.clip();
+      /* light pours over the crown and the fringe falls into shade */
+      var hg = c.createLinearGradient(0, hy - r - 2, 0, hy + 2);
+      hg.addColorStop(0, 'rgba(255,255,255,0.2)');
+      hg.addColorStop(0.5, 'rgba(255,255,255,0)');
+      hg.addColorStop(1, 'rgba(42,16,48,0.22)');
+      c.fillStyle = hg;
+      c.fillRect(-r - 4, hy - r - 4, r * 2 + 8, r + 8);
+      var hs = c.createLinearGradient(-r, 0, r, 0);
+      hs.addColorStop(0, 'rgba(255,255,255,0.14)');
+      hs.addColorStop(0.5, 'rgba(255,255,255,0)');
+      hs.addColorStop(1, 'rgba(42,16,48,0.16)');
+      c.fillStyle = hs;
+      c.fillRect(-r - 4, hy - r - 4, r * 2 + 8, r + 8);
       c.globalAlpha = 0.3;
       fillEllipse(c, 1, hy + 1, r + 2, 4.5, dark, false);
       c.restore();
       c.beginPath();
       c.arc(0, hy, r + 1.5, Math.PI, Math.PI * 2);
       c.closePath();
+      c.fillStyle = col;
       ink(c, 2);
       switch (cust.hairStyle) {
         case 'bob':
@@ -362,8 +410,8 @@
   function drawLegs(c, cust, swing) {
     var skin = skinOf(cust);
     var bot = CH.torsoBot;
-    fillRound(c, -7 + swing * 0.5, bot, 6, 12, 3, skin);
-    fillRound(c, 1 - swing * 0.5, bot, 6, 12, 3, skin);
+    volumeRound(c, -7 + swing * 0.5, bot, 6, 12, 3, skin);
+    volumeRound(c, 1 - swing * 0.5, bot, 6, 12, 3, skin);
   }
 
   function drawPantsLegs(c, cust, swing) {
@@ -372,14 +420,14 @@
     var lx = -7 + swing * 0.5, rx = 1 - swing * 0.5;
     switch (cust.pants) {
       case 'jeans':
-        fillRound(c, lx - 0.5, bot - 2, 7, 12, 2.5, col);
-        fillRound(c, rx - 0.5, bot - 2, 7, 12, 2.5, col);
+        volumeRound(c, lx - 0.5, bot - 2, 7, 12, 2.5, col);
+        volumeRound(c, rx - 0.5, bot - 2, 7, 12, 2.5, col);
         c.strokeStyle = light; c.lineWidth = 1;
         c.beginPath(); c.moveTo(lx + 1, bot + 7); c.lineTo(lx + 1, bot + 9.5); c.moveTo(rx + 5, bot + 7); c.lineTo(rx + 5, bot + 9.5); c.stroke();
         break;
       case 'leggings':
-        fillRound(c, lx, bot - 2, 6, 12, 3, col);
-        fillRound(c, rx, bot - 2, 6, 12, 3, col);
+        volumeRound(c, lx, bot - 2, 6, 12, 3, col);
+        volumeRound(c, rx, bot - 2, 6, 12, 3, col);
         break;
       case 'stripey':
         for (var s = 0; s < 2; s++) {
@@ -399,8 +447,8 @@
         fillRound(c, -8, bot - 4, 16, 3, 1.5, dark, false);
         break;
       case 'overalls':
-        fillRound(c, lx - 0.5, bot - 2, 7, 12, 2.5, col);
-        fillRound(c, rx - 0.5, bot - 2, 7, 12, 2.5, col);
+        volumeRound(c, lx - 0.5, bot - 2, 7, 12, 2.5, col);
+        volumeRound(c, rx - 0.5, bot - 2, 7, 12, 2.5, col);
         break;
       /* skirts are drawn by drawSkirt(), over the camisole */
     }
@@ -670,7 +718,7 @@
     var long = cust.jacket === 'hoodie' || cust.jacket === 'raincoat' || cust.jacket === 'puffer' || cust.jacket === 'blazer' || cust.jacket === 'cardigan';
     var h = long ? 12 : 7;
     var w = cust.jacket === 'puffer' ? 7 : 6;
-    fillRound(c, ax - 0.5 - (w - 6) / 2, ay - 1, w, h, 3, isFront ? col : shade(col, -10));
+    volumeRound(c, ax - 0.5 - (w - 6) / 2, ay - 1, w, h, 3, isFront ? col : shade(col, -10));
     if (long) fillRound(c, ax - 0.5 - (w - 6) / 2, ay + h - 3, w, 2.5, 1, shade(col, -22), false);
   }
 
@@ -1116,6 +1164,13 @@
     fillEllipse(c, 2.5, CH.headY + 3.5, CH.headR, CH.headR + 0.5, shade(skin, -12), false);
     c.globalAlpha = 1;
     fillEllipse(c, -1, CH.headY - 1.2, CH.headR, CH.headR + 0.5, skin, false);
+    /* a sphere: lit high on the left, falling off toward the jaw */
+    var sg = c.createRadialGradient(-4, CH.headY - 5, 1, -1, CH.headY - 1, CH.headR + 2);
+    sg.addColorStop(0, 'rgba(255,255,255,0.22)');
+    sg.addColorStop(0.55, 'rgba(255,255,255,0)');
+    sg.addColorStop(1, 'rgba(42,16,48,0.14)');
+    c.fillStyle = sg;
+    c.fillRect(-20, CH.headY - 20, 40, 40);
     c.restore();
     c.beginPath();
     c.ellipse(0, CH.headY, CH.headR, CH.headR + 0.5, 0, 0, Math.PI * 2);
@@ -1156,7 +1211,7 @@
     var ax = isFront ? 8 + swing * 0.4 : -13 - swing * 0.4;
     var hand;
     if (pose === 'up') {
-      fillRound(c, ax, top - 14, 5, 18, 2.5, skin);
+      volumeRound(c, ax, top - 14, 5, 18, 2.5, skin);
       hand = { x: ax + 2.5, y: top - 15 };
       fillEllipse(c, hand.x, hand.y, 3.4, 3.2, skin);
       drawSleeve(c, cust, ax, top - 2, isFront);
@@ -1164,13 +1219,13 @@
       c.save();
       c.translate(ax + 2.5, top + 3);
       c.rotate(isFront ? -0.9 : 0.9);
-      fillRound(c, -2.5, 0, 5, 13, 2.5, skin);
+      volumeRound(c, -2.5, 0, 5, 13, 2.5, skin);
       c.restore();
       hand = { x: ax + 2.5 + (isFront ? 9 : -9), y: top + 12 };
       fillEllipse(c, hand.x, hand.y, 3.4, 3.2, skin);
       drawSleeve(c, cust, ax, top + 3, isFront);
     } else {
-      fillRound(c, ax, top + 3, 5, 14, 2.5, skin);
+      volumeRound(c, ax, top + 3, 5, 14, 2.5, skin);
       hand = { x: ax + 2.5, y: top + 17 };
       fillEllipse(c, hand.x, hand.y, 3.4, 3.2, skin);
       drawSleeve(c, cust, ax, top + 3, isFront);
@@ -1201,6 +1256,11 @@
 
     if (!opts.noShadow) softShadow(c, 0, 1, 18 - (lift || 0) * 0.4, 4.5, 0.26);
     c.translate(0, bob - (lift || 0));
+    /* standing still she breathes: a slow rise of the chest about the feet */
+    if (frame === 0 && opts.t !== undefined) {
+      var br = Math.sin(opts.t / 26) * 0.012;
+      c.scale(1 - br * 0.6, 1 + br);
+    }
 
     drawAccessoryBack(c, cust);
     drawJacketBack(c, cust);

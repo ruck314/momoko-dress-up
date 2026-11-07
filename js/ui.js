@@ -148,6 +148,56 @@
     E.ink(c, 2);
   }
 
+  /* Frosted glass: whatever is already on the canvas under the rect is
+     grabbed, shrunk, blurred and laid back down with a milky tint, so a
+     card floats in front of the room instead of being pasted onto it.
+     Browsers without canvas filters get a plain translucent fill. */
+  var frostCv = null, frostCtx = null;
+  function frostPanel(c, x, y, w, h, r, tint, blurPx) {
+    var pad = 20;
+    c.save();
+    E.roundRect(c, x, y, w, h, r);
+    c.clip();
+    if (Game.studio.HAS_FILTER && Game.FX.frost && c.getTransform) {
+      var m = c.getTransform();
+      var sx = (x - pad) * m.a + m.e, sy = (y - pad) * m.d + m.f;
+      var sw = (w + pad * 2) * m.a, sh = (h + pad * 2) * m.d;
+      var ds = 3;
+      var bw = Math.max(1, Math.ceil(sw / ds)), bh = Math.max(1, Math.ceil(sh / ds));
+      if (!frostCv) { frostCv = document.createElement('canvas'); frostCtx = frostCv.getContext('2d'); }
+      if (frostCv.width < bw || frostCv.height < bh) { frostCv.width = Math.max(frostCv.width, bw); frostCv.height = Math.max(frostCv.height, bh); }
+      frostCtx.clearRect(0, 0, bw, bh);
+      frostCtx.drawImage(c.canvas, sx, sy, sw, sh, 0, 0, bw, bh);
+      c.filter = 'blur(' + (blurPx || 7) + 'px)';
+      c.drawImage(frostCv, 0, 0, bw, bh, x - pad, y - pad, w + pad * 2, h + pad * 2);
+      c.filter = 'none';
+      c.fillStyle = tint || 'rgba(255, 248, 252, 0.5)';
+      c.fillRect(x, y, w, h);
+    } else {
+      c.fillStyle = tint ? tint.replace(/[\d.]+\)$/, '0.82)') : 'rgba(255, 248, 252, 0.82)';
+      c.fillRect(x, y, w, h);
+    }
+    /* glass edge: bright along the top, a cool shade at the foot */
+    var eg = c.createLinearGradient(0, y, 0, y + h);
+    eg.addColorStop(0, 'rgba(255,255,255,0.5)');
+    eg.addColorStop(0.12, 'rgba(255,255,255,0)');
+    eg.addColorStop(0.9, 'rgba(120,70,160,0)');
+    eg.addColorStop(1, 'rgba(120,70,160,0.12)');
+    c.fillStyle = eg;
+    c.fillRect(x, y, w, h);
+    c.restore();
+    c.save();
+    c.strokeStyle = 'rgba(255,255,255,0.9)';
+    c.lineWidth = 2;
+    E.roundRect(c, x, y, w, h, r);
+    c.stroke();
+    c.strokeStyle = 'rgba(74,42,64,0.14)';
+    c.lineWidth = 1;
+    E.roundRect(c, x - 1, y + 1, w + 2, h + 2, r + 1);
+    c.stroke();
+    c.restore();
+  }
+
   function multiline(c, text, cx, y, lineH, align) {
     var lines = String(text).split('\n');
     c.textAlign = align || 'center';
@@ -269,22 +319,41 @@
   /* Petals drifting down across the title, deterministic in t. */
   var PETALS = (function () {
     var rnd = E.seeded(99), out = [];
-    for (var i = 0; i < 22; i++) out.push({ x: rnd(), sp: 0.25 + rnd() * 0.35, ph: rnd() * 6.28, r: 3 + rnd() * 3, sw: 14 + rnd() * 16, col: i % 3 === 0 ? '#ffffff' : i % 3 === 1 ? '#ffb7d9' : '#ff9ccd' });
+    for (var i = 0; i < 34; i++) {
+      var depth = rnd();  /* 0 = far and small, 1 = right by the lens */
+      out.push({ x: rnd(), sp: 0.2 + depth * 0.55, ph: rnd() * 6.28, r: 2.5 + depth * 9, sw: 14 + rnd() * 16,
+                 depth: depth, col: i % 3 === 0 ? '#ffffff' : i % 3 === 1 ? '#ffb7d9' : '#ff9ccd' });
+    }
+    out.sort(function (a, b) { return a.depth - b.depth; });
     return out;
   })();
-  function drawPetals(c) {
+  /* a petal pre-blurred by how close it is, so the near ones fall out of focus */
+  function petalSprite(col, blur) {
+    return E.getCachedSprite('petal' + col + blur, 40, 40, function (g) {
+      if (Game.studio.HAS_FILTER && blur > 0) g.filter = 'blur(' + blur + 'px)';
+      E.fillEllipse(g, 20, 20, 12, 7.2, col, false);
+      E.fillEllipse(g, 16.4, 18.2, 4.8, 2.6, 'rgba(255,255,255,0.6)', false);
+      g.globalAlpha = 0.35;
+      E.fillEllipse(g, 24, 22, 3, 1.6, 'rgba(226,85,154,1)', false);
+    });
+  }
+  function drawPetals(c, nearOnly, farOnly) {
     c.save();
     for (var i = 0; i < PETALS.length; i++) {
       var p = PETALS[i];
-      var y = ((t * p.sp + p.ph * 90) % (VIEW.h + 60)) - 30 + VIEW.y;
+      if (nearOnly && p.depth < 0.7) continue;
+      if (farOnly && p.depth >= 0.7) continue;
+      var y = ((t * p.sp + p.ph * 90) % (VIEW.h + 80)) - 40 + VIEW.y;
       var x = VIEW.x + p.x * VIEW.w + Math.sin(t / 40 + p.ph) * p.sw;
+      var blur = p.depth > 0.7 ? Math.round((p.depth - 0.7) * 8) : 0;
+      var spr = petalSprite(p.col, blur);
       c.save();
       c.translate(x, y);
       c.rotate(Math.sin(t / 30 + p.ph) * 0.8 + p.ph);
-      c.globalAlpha = 0.75;
-      E.fillEllipse(c, 0, 0, p.r, p.r * 0.6, p.col, false);
-      c.globalAlpha = 0.5;
-      E.fillEllipse(c, -p.r * 0.3, -p.r * 0.15, p.r * 0.4, p.r * 0.22, '#ffffff', false);
+      c.globalAlpha = p.depth > 0.7 ? 0.55 : 0.8;
+      var sc = p.r / 12;
+      c.scale(sc, sc);
+      c.drawImage(spr, -20, -20, 40, 40);
       c.restore();
     }
     c.restore();
@@ -294,23 +363,66 @@
     t++;
     /* windows at x=310 and 740: behind the podium and past the buttons */
     Game.studio.drawBackdrop(c, 0, t, TITLE_GROUND, 250, true);
-    drawPetals(c);
+    /* the house lights are down: the room falls to dusk and the spots
+       take over, so the eye lands on the podium and the title */
+    c.save();
+    c.globalCompositeOperation = 'multiply';
+    var dusk = c.createLinearGradient(0, VIEW.y, 0, VIEW.y + VIEW.h);
+    dusk.addColorStop(0, 'rgba(160, 110, 175, 1)');
+    dusk.addColorStop(0.5, 'rgba(218, 180, 214, 1)');
+    dusk.addColorStop(1, 'rgba(180, 130, 182, 1)');
+    c.fillStyle = dusk;
+    c.fillRect(VIEW.x, VIEW.y, VIEW.w, VIEW.h);
+    c.restore();
+    drawPetals(c, false, true);
     c.save();
     clipGame(c);
 
     /* a little star podium with Momoko and two friends */
     var px = 190, py = TITLE_GROUND + 30;
-    /* a spotlight cone from the ceiling down onto the podium */
+    /* two spotlights cross on the podium, with a hot pool where they land */
     c.save();
     c.globalCompositeOperation = 'lighter';
-    var cone = c.createLinearGradient(0, 0, 0, py);
-    cone.addColorStop(0, 'rgba(255, 244, 214, 0.16)');
-    cone.addColorStop(1, 'rgba(255, 244, 214, 0.03)');
-    c.fillStyle = cone;
-    c.beginPath(); c.moveTo(px - 26, -10); c.lineTo(px + 26, -10); c.lineTo(px + 150, py); c.lineTo(px - 150, py); c.closePath(); c.fill();
+    var rigs = [[px - 150, '255,240,205', 0.34], [px + 170, '255,205,235', 0.26]];
+    for (var ri = 0; ri < rigs.length; ri++) {
+      var rx = rigs[ri][0], ry = VIEW.y - 10;
+      var dx = px - rx, dy = py - 6 - ry, len = Math.sqrt(dx * dx + dy * dy);
+      c.save();
+      c.translate(rx, ry);
+      c.rotate(Math.atan2(dy, dx) - Math.PI / 2);
+      var cone = c.createLinearGradient(0, 0, 0, len);
+      cone.addColorStop(0, 'rgba(' + rigs[ri][1] + ',' + rigs[ri][2] + ')');
+      cone.addColorStop(0.7, 'rgba(' + rigs[ri][1] + ',' + (rigs[ri][2] * 0.4) + ')');
+      cone.addColorStop(1, 'rgba(' + rigs[ri][1] + ',0.03)');
+      c.fillStyle = cone;
+      c.beginPath(); c.moveTo(-8, 0); c.lineTo(8, 0); c.lineTo(120, len); c.lineTo(-120, len); c.closePath(); c.fill();
+      var core = c.createLinearGradient(0, 0, 0, len);
+      core.addColorStop(0, 'rgba(255,255,255,0.14)'); core.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = core;
+      c.beginPath(); c.moveTo(-3, 0); c.lineTo(3, 0); c.lineTo(44, len); c.lineTo(-44, len); c.closePath(); c.fill();
+      c.restore();
+      E.fillEllipse(c, rx, ry + 8, 10, 6, 'rgba(255,250,235,0.9)', false);
+    }
+    c.save();
+    c.translate(px, py - 2);
+    c.scale(1, 0.22);
+    var pool = c.createRadialGradient(0, 0, 10, 0, 0, 230);
+    pool.addColorStop(0, 'rgba(255, 246, 225, 0.55)');
+    pool.addColorStop(0.5, 'rgba(255, 230, 240, 0.18)');
+    pool.addColorStop(1, 'rgba(255, 230, 240, 0)');
+    c.fillStyle = pool;
+    c.fillRect(-230, -230, 460, 460);
     c.restore();
-    E.fillEllipse(c, px, py + 2, 150, 20, PAL.pinkDeep);
-    E.fillEllipse(c, px, py - 4, 150, 20, PAL.pink);
+    c.restore();
+    /* the podium: a pink disc with a brass rim and a lit top */
+    E.softShadow(c, px, py + 10, 160, 26, 0.3);
+    E.fillEllipse(c, px, py + 3, 150, 20, E.shade(PAL.pinkDeep, -14));
+    var pdg = c.createLinearGradient(0, py - 24, 0, py + 16);
+    pdg.addColorStop(0, '#ffb9d9'); pdg.addColorStop(0.6, PAL.pink); pdg.addColorStop(1, E.shade(PAL.pink, -12));
+    E.fillEllipse(c, px, py - 4, 150, 20, pdg, false);
+    c.fillStyle = PAL.pink; c.beginPath(); c.ellipse(px, py - 4, 150, 20, 0, 0, Math.PI * 2); E.ink(c, 2);
+    c.beginPath(); c.ellipse(px, py - 4, 140, 16, 0, 0, Math.PI * 2);
+    c.strokeStyle = 'rgba(255,255,255,0.55)'; c.lineWidth = 1.5; c.stroke();
     c.fillStyle = PAL.sun;
     E.star(c, px, py - 4, 16);
     var cast = titleCast();
@@ -319,8 +431,11 @@
     for (var ps = -1; ps <= 1; ps += 2) {
       var sx2 = px + ps * 174;
       E.fillEllipse(c, sx2, py + 4, 13, 4, PAL.woodDark);
-      E.fillRound(c, sx2 - 2.5, py - 54, 5, 58, 2, PAL.gold);
-      E.fillEllipse(c, sx2, py - 56, 5.5, 5.5, PAL.gold);
+      var postG = c.createLinearGradient(sx2 - 3, 0, sx2 + 3, 0);
+      postG.addColorStop(0, '#9a6a14'); postG.addColorStop(0.35, '#fff0b0'); postG.addColorStop(0.6, '#d9a62a'); postG.addColorStop(1, '#8a5a12');
+      E.fillRound(c, sx2 - 2.5, py - 54, 5, 58, 2, postG, false);
+      c.fillStyle = PAL.gold; E.roundRect(c, sx2 - 2.5, py - 54, 5, 58, 2); E.ink(c, 2);
+      E.fillEllipse(c, sx2, py - 56, 5.5, 5.5, postG);
     }
     c.strokeStyle = PAL.pinkDeep; c.lineWidth = 4; c.lineCap = 'round';
     c.beginPath(); c.moveTo(px - 174, py - 52); c.quadraticCurveTo(px - 150, py - 26, px - 130, py - 30); c.stroke();
@@ -351,11 +466,21 @@
     c.save();
     /* a soft pink halo so the lettering floats off the wallpaper */
     var halo = c.createRadialGradient(TITLE_CX, 160 + bob, 20, TITLE_CX, 160 + bob, 260);
-    halo.addColorStop(0, 'rgba(255, 255, 255, 0.75)');
-    halo.addColorStop(0.5, 'rgba(255, 230, 242, 0.45)');
+    halo.addColorStop(0, 'rgba(255, 255, 255, 0.7)');
+    halo.addColorStop(0.5, 'rgba(255, 230, 242, 0.4)');
     halo.addColorStop(1, 'rgba(255, 230, 242, 0)');
     c.fillStyle = halo;
     c.fillRect(TITLE_CX - 270, 0, 540, 300);
+    /* the glow the lettering itself gives off */
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    var lg = c.createRadialGradient(TITLE_CX, 172 + bob, 10, TITLE_CX, 172 + bob, 200);
+    lg.addColorStop(0, 'rgba(255, 170, 215, ' + (0.3 + Math.sin(t / 30) * 0.06) + ')');
+    lg.addColorStop(0.5, 'rgba(255, 150, 200, 0.1)');
+    lg.addColorStop(1, 'rgba(255, 150, 200, 0)');
+    c.fillStyle = lg;
+    c.fillRect(TITLE_CX - 220, 20, 440, 300);
+    c.restore();
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.lineJoin = 'round';
@@ -407,6 +532,18 @@
     c.fillStyle = sg;
     c.fillText(T('title2'), TITLE_CX, 172 + bob);
     c.restore();
+    /* sparkles orbiting the lettering */
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (var sk = 0; sk < 9; sk++) {
+      var sa = t / 70 + sk * 0.7, sr = 1 + Math.sin(t / 9 + sk * 1.3);
+      if (sr <= 0.4) continue;
+      var skx = TITLE_CX + Math.cos(sa) * (190 + Math.sin(sk) * 30), sky = ty + Math.sin(sa * 1.3) * 42;
+      c.globalAlpha = (sr - 0.4) * 0.8;
+      c.fillStyle = sk % 2 ? '#fff6c8' : '#ffffff';
+      E.star(c, skx, sky, 1.5 + sr * 2.6);
+    }
+    c.restore();
     c.font = 'bold 15px ' + FONT;
     var sw = c.measureText(T('titleSubtitle')).width + 30;
     c.fillStyle = 'rgba(255, 246, 236, 0.9)';
@@ -420,12 +557,15 @@
     if (confirmReset) { drawResetConfirm(c); return; }
     if (showInstructions) { drawInstructionsOverlay(c); drawVersionStamp(c); return; }
 
+    /* the menu sits on a pane of frosted glass */
+    frostPanel(c, TITLE_CX - 118, 236, 236, 180, 18, 'rgba(255, 246, 250, 0.42)');
     button(c, TITLE_BTN.play, T('play'), { font: 22, fill: PAL.sun, r: 12 });
     button(c, TITLE_BTN.how, T('howToPlay'), { font: 15 });
     button(c, TITLE_BTN.lang, T('language') + ': ' + T('langLabel'), { font: 14 });
     button(c, TITLE_BTN.sound, Game.audio.isMuted() ? T('soundOff') : T('soundOn'), { font: 14 });
     if (hasSave()) button(c, TITLE_BTN.reset, T('startOver'), { font: 12, fill: 'rgba(255,246,236,0.7)' });
     if (Game.progress && Game.progress.stars > 0) drawStarBadge(c, 14, 46, Game.progress.stars, T('hudStars'));
+    drawPetals(c, true, false);
     drawVersionStamp(c);
   }
 
@@ -594,7 +734,7 @@
     };
   }
   function wardSwatch(i, n, big) {
-    var size = big ? 52 : WARD.swatchSize, gap = big ? 14 : WARD.swatchGap;
+    var size = big ? (n > 7 ? 48 : 52) : WARD.swatchSize, gap = big ? (n > 7 ? 12 : 14) : WARD.swatchGap;
     var total = n * size + (n - 1) * gap;
     var x0 = big ? 292 + (486 - total) / 2 : 292;
     var y = big ? 180 : WARD.swatchY;
@@ -651,14 +791,8 @@
     c.save();
     clipGame(c);
 
-    /* a soft board behind the tiles so the wall decor stays out of the grid */
-    c.fillStyle = 'rgba(255, 255, 255, 0.55)';
-    E.roundRect(c, 284, 52, 500, 352, 14);
-    c.fill();
-    E.roundRect(c, 284, 52, 500, 352, 14);
-    c.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-    c.lineWidth = 2;
-    c.stroke();
+    /* the room softens behind a frosted board so the tiles read cleanly */
+    frostPanel(c, 284, 52, 500, 352, 14, 'rgba(255, 250, 253, 0.56)', 8);
 
     /* header: the station's own sign colours */
     E.fillRound(c, 14, 10, 262, 38, 12, st.hue);
@@ -754,6 +888,12 @@
     spot.addColorStop(0, 'rgba(255, 250, 220, 0.5)');
     spot.addColorStop(1, 'rgba(255, 250, 220, 0)');
     c.fillStyle = spot;
+    c.fillRect(PX, PY, PW, PH);
+    /* the preview booth is darker toward its edges so she is the bright thing in it */
+    var pv = c.createRadialGradient(pcx, pcy - 110, 60, pcx, pcy - 110, 230);
+    pv.addColorStop(0, 'rgba(120, 50, 110, 0)');
+    pv.addColorStop(1, 'rgba(120, 50, 110, 0.28)');
+    c.fillStyle = pv;
     c.fillRect(PX, PY, PW, PH);
     var cycle = Math.floor(t / 150) % 2;
     var walkFrame = Math.floor(t / 9) % 4 + 1;
@@ -986,7 +1126,7 @@
     setView: setView,
     VIEW: VIEW,
     TITLE_GROUND: TITLE_GROUND,
-    button: button, hit: hit, panel: panel, multiline: multiline, swatch: swatch,
+    button: button, hit: hit, panel: panel, frostPanel: frostPanel, multiline: multiline, swatch: swatch,
     FONT: FONT, pointerOver: pointerOver, fitFont: fitFont, layoutLines: layoutLines,
     beginFrame: function () { anyHot = false; },
     isHot: function () { return anyHot; },

@@ -62,12 +62,31 @@
     });
   }
 
+  /* Polished brass: a linear gradient that reads as metal because the
+     highlight sits off-centre and the colour swings warm-dark-warm. */
+  function metal(c, x0, y0, x1, y1, base) {
+    var g = c.createLinearGradient(x0, y0, x1, y1);
+    if (base === 'silver') {
+      g.addColorStop(0, '#8c8fa0'); g.addColorStop(0.3, '#f4f6ff'); g.addColorStop(0.5, '#b9bdcc');
+      g.addColorStop(0.72, '#ffffff'); g.addColorStop(1, '#7c8090');
+    } else {
+      g.addColorStop(0, '#9a6a14'); g.addColorStop(0.28, '#f8dd86'); g.addColorStop(0.5, '#c9931f');
+      g.addColorStop(0.72, '#fff3b8'); g.addColorStop(1, '#8a5a12');
+    }
+    return g;
+  }
+
   function drawWall(c, camX, groundY) {
     var V = view();
+    /* the ceiling cove falls into dusk and the wall brightens toward
+       eye level: light comes from the fixtures and the windows, not from
+       everywhere at once */
     var g = c.createLinearGradient(0, V.y, 0, groundY);
-    g.addColorStop(0, '#fff3f8');
-    g.addColorStop(0.55, PAL.wall);
-    g.addColorStop(1, PAL.wallB);
+    g.addColorStop(0, '#a9759f');
+    g.addColorStop(0.16, '#c99bbd');
+    g.addColorStop(0.42, '#e6c6da');
+    g.addColorStop(0.72, '#f1d6e4');
+    g.addColorStop(1, '#e3c0d4');
     c.fillStyle = g;
     c.fillRect(V.x, V.y, V.w, groundY - V.y);
     /* wallpaper pattern, parallax at 0.5 */
@@ -78,68 +97,127 @@
         c.drawImage(tile, x, y, 120, Math.min(120, groundY - 110 - y));
       }
     }
-    /* picture rail */
-    E.fillRound(c, V.x, groundY - 240, V.w, 8, 0, '#ffffff', false);
-    c.fillStyle = 'rgba(74,42,64,0.12)';
-    c.fillRect(V.x, groundY - 232, V.w, 3);
+    /* crown moulding where the wall meets the ceiling */
+    var cm = c.createLinearGradient(0, V.y, 0, V.y + 16);
+    cm.addColorStop(0, '#fff6fb');
+    cm.addColorStop(0.5, '#f4dbe8');
+    cm.addColorStop(1, '#d9a9c4');
+    c.fillStyle = cm;
+    c.fillRect(V.x, V.y, V.w, 16);
+    var cs = c.createLinearGradient(0, V.y + 16, 0, V.y + 40);
+    cs.addColorStop(0, 'rgba(74,42,64,0.26)');
+    cs.addColorStop(1, 'rgba(74,42,64,0)');
+    c.fillStyle = cs;
+    c.fillRect(V.x, V.y + 16, V.w, 24);
+    /* picture rail, with the shadow it throws down the wall */
+    var pr = c.createLinearGradient(0, groundY - 240, 0, groundY - 232);
+    pr.addColorStop(0, '#ffffff'); pr.addColorStop(1, '#ead2de');
+    c.fillStyle = pr;
+    c.fillRect(V.x, groundY - 240, V.w, 8);
+    var prs = c.createLinearGradient(0, groundY - 232, 0, groundY - 216);
+    prs.addColorStop(0, 'rgba(74,42,64,0.2)');
+    prs.addColorStop(1, 'rgba(74,42,64,0)');
+    c.fillStyle = prs;
+    c.fillRect(V.x, groundY - 232, V.w, 16);
     /* wainscot: cream panelling along the lower wall */
     var wg = c.createLinearGradient(0, groundY - 110, 0, groundY);
-    wg.addColorStop(0, '#fff7f1');
-    wg.addColorStop(1, '#f6e2ea');
+    wg.addColorStop(0, '#fff8f3');
+    wg.addColorStop(0.7, '#f7e3eb');
+    wg.addColorStop(1, '#e9cbd8');
     c.fillStyle = wg;
     c.fillRect(V.x, groundY - 110, V.w, 102);
-    c.fillStyle = '#ffffff';
-    c.fillRect(V.x, groundY - 114, V.w, 6);
-    c.fillStyle = 'rgba(74,42,64,0.1)';
-    c.fillRect(V.x, groundY - 108, V.w, 2);
-    /* panel frames, scrolling with the world */
+    var cap = c.createLinearGradient(0, groundY - 116, 0, groundY - 108);
+    cap.addColorStop(0, '#ffffff'); cap.addColorStop(1, '#f0d8e2');
+    c.fillStyle = cap;
+    c.fillRect(V.x, groundY - 116, V.w, 8);
+    var caps = c.createLinearGradient(0, groundY - 108, 0, groundY - 96);
+    caps.addColorStop(0, 'rgba(74,42,64,0.18)');
+    caps.addColorStop(1, 'rgba(74,42,64,0)');
+    c.fillStyle = caps;
+    c.fillRect(V.x, groundY - 108, V.w, 12);
+    /* panel frames, scrolling with the world: a bevel, lit top-left */
     var poff = -(camX % 160);
-    c.strokeStyle = 'rgba(226, 85, 154, 0.22)';
     c.lineWidth = 2;
     for (var px = V.x + poff - 160; px < V.x + V.w + 160; px += 160) {
+      c.fillStyle = 'rgba(255,255,255,0.35)';
       E.roundRect(c, px + 14, groundY - 96, 132, 70, 6);
+      c.fill();
+      c.strokeStyle = 'rgba(74,42,64,0.14)';
+      E.roundRect(c, px + 15, groundY - 95, 132, 70, 6);
+      c.stroke();
+      c.strokeStyle = 'rgba(255,255,255,0.9)';
+      E.roundRect(c, px + 13, groundY - 97, 132, 70, 6);
+      c.stroke();
+      c.strokeStyle = 'rgba(226, 85, 154, 0.18)';
+      E.roundRect(c, px + 22, groundY - 88, 116, 54, 4);
       c.stroke();
     }
     /* skirting */
-    c.fillStyle = PAL.floorDark;
-    c.fillRect(V.x, groundY - 8, V.w, 8);
-    c.fillStyle = 'rgba(255,255,255,0.5)';
-    c.fillRect(V.x, groundY - 8, V.w, 2);
+    var sk = c.createLinearGradient(0, groundY - 10, 0, groundY);
+    sk.addColorStop(0, '#fff0f6'); sk.addColorStop(0.35, PAL.floorDark); sk.addColorStop(1, '#b97a97');
+    c.fillStyle = sk;
+    c.fillRect(V.x, groundY - 10, V.w, 10);
   }
 
   /* A small crystal chandelier for every other ceiling light. */
   function drawChandelier(c, x, y, t) {
+    var V = view();
     var tw = 0.8 + Math.sin(t / 17 + x) * 0.2;
-    c.strokeStyle = PAL.ink; c.lineWidth = 2;
-    c.beginPath(); c.moveTo(x, y - 60); c.lineTo(x, y - 22); c.stroke();
-    var g = c.createRadialGradient(x, y, 6, x, y, 86);
-    g.addColorStop(0, 'rgba(255, 240, 190, ' + (0.6 * tw) + ')');
-    g.addColorStop(0.4, 'rgba(255, 236, 170, ' + (0.22 * tw) + ')');
-    g.addColorStop(1, 'rgba(255, 240, 190, 0)');
-    c.fillStyle = g;
-    c.fillRect(x - 86, y - 86, 172, 172);
-    /* arms and candles */
-    E.fillEllipse(c, x, y - 2, 30, 8, PAL.gold);
-    for (var i = -2; i <= 2; i++) {
-      var cx = x + i * 13;
-      E.fillRound(c, cx - 2.5, y - 16, 5, 14, 2, '#fff6ec');
-      E.fillEllipse(c, cx, y - 19, 3, 4.5, '#ffe28a', false);
-      E.fillEllipse(c, cx, y - 20, 1.4, 2.2, '#ffffff', false);
-    }
-    /* crystal drops */
-    for (var k = -3; k <= 3; k++) {
-      var dx = x + k * 9, dy = y + 8 + (k % 2 === 0 ? 6 : 0);
-      E.fillPath(c, [[dx, dy - 3], [dx + 3, dy + 2], [dx, dy + 8], [dx - 3, dy + 2]], 'rgba(255,255,255,0.85)', true, false);
-      c.strokeStyle = 'rgba(74,42,64,0.35)'; c.lineWidth = 1;
-      c.beginPath(); c.moveTo(dx, dy - 3); c.lineTo(dx + 3, dy + 2); c.lineTo(dx, dy + 8); c.lineTo(dx - 3, dy + 2); c.closePath(); c.stroke();
-    }
-    E.fillEllipse(c, x, y - 22, 5, 5, PAL.gold);
-    /* a glint hopping between the crystals */
-    var gi = Math.floor(t / 16 + x / 50) % 7 - 3;
+    /* ceiling rose and chain */
+    E.fillEllipse(c, x, V.y + 14, 14, 4, metal(c, x - 14, 0, x + 14, 0), false);
+    c.strokeStyle = '#6a4a20'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(x, V.y + 14); c.lineTo(x, y - 30); c.stroke();
+    c.strokeStyle = 'rgba(255,230,160,0.5)'; c.lineWidth = 0.8;
+    c.beginPath(); c.moveTo(x - 0.5, V.y + 14); c.lineTo(x - 0.5, y - 30); c.stroke();
+    /* the big warm glow that lights the wall behind it */
     c.save();
-    c.globalAlpha = 0.6 + Math.sin(t / 4) * 0.3;
+    c.globalCompositeOperation = 'lighter';
+    var g = c.createRadialGradient(x, y, 6, x, y, 120);
+    g.addColorStop(0, 'rgba(255, 236, 180, ' + (0.55 * tw) + ')');
+    g.addColorStop(0.3, 'rgba(255, 220, 150, ' + (0.22 * tw) + ')');
+    g.addColorStop(1, 'rgba(255, 220, 150, 0)');
+    c.fillStyle = g;
+    c.fillRect(x - 120, y - 120, 240, 240);
+    c.restore();
+    /* two brass tiers with candles */
+    var tiers = [[y + 6, 40, 4], [y - 14, 24, 3]];
+    for (var ti = 0; ti < tiers.length; ti++) {
+      var ty = tiers[ti][0], tr = tiers[ti][1], n = tiers[ti][2];
+      c.beginPath(); c.ellipse(x, ty, tr, tr * 0.28, 0, 0, Math.PI * 2);
+      c.fillStyle = metal(c, x - tr, 0, x + tr, 0); c.fill();
+      c.strokeStyle = '#6a4a20'; c.lineWidth = 1.2; c.stroke();
+      for (var i = -n; i <= n; i++) {
+        var cx = x + (i / n) * tr * 0.92;
+        var cy = ty - 2 + Math.abs(i / n) * 2;
+        E.fillRound(c, cx - 2.2, cy - 15, 4.4, 15, 2, '#fff6ec', false);
+        c.strokeStyle = 'rgba(74,42,64,0.4)'; c.lineWidth = 1;
+        E.roundRect(c, cx - 2.2, cy - 15, 4.4, 15, 2); c.stroke();
+        var fl = 1 + Math.sin(t / 5 + cx) * 0.18;
+        E.fillEllipse(c, cx, cy - 19, 2.6 * fl, 4.6 * fl, '#ffcf5a', false);
+        E.fillEllipse(c, cx, cy - 19.6, 1.3, 2.6, '#fffbe0', false);
+      }
+      /* crystal drops hung from the rim */
+      for (var k = -n - 1; k <= n + 1; k++) {
+        var dx = x + (k / (n + 1)) * tr, dy = ty + 7 + ((k & 1) ? 5 : 0);
+        c.strokeStyle = 'rgba(255,255,255,0.7)'; c.lineWidth = 0.8;
+        c.beginPath(); c.moveTo(dx, ty + 1); c.lineTo(dx, dy - 3); c.stroke();
+        var dg = c.createLinearGradient(dx - 3, dy, dx + 3, dy);
+        dg.addColorStop(0, '#d8f0ff'); dg.addColorStop(0.5, '#ffffff'); dg.addColorStop(1, '#ffd9ee');
+        E.fillPath(c, [[dx, dy - 3], [dx + 3, dy + 2], [dx, dy + 9], [dx - 3, dy + 2]], dg, true, false);
+        c.strokeStyle = 'rgba(74,42,64,0.4)'; c.lineWidth = 0.8;
+        c.beginPath(); c.moveTo(dx, dy - 3); c.lineTo(dx + 3, dy + 2); c.lineTo(dx, dy + 9); c.lineTo(dx - 3, dy + 2); c.closePath(); c.stroke();
+      }
+    }
+    E.fillEllipse(c, x, y - 30, 5, 5, metal(c, x - 5, 0, x + 5, 0), false);
+    E.fillEllipse(c, x, y + 20, 4, 6, '#ffffff', false);
+    /* glints hopping between the crystals */
+    c.save();
     c.fillStyle = '#ffffff';
-    E.star(c, x + gi * 9, y + 10 + (gi % 2 === 0 ? 6 : 0), 4);
+    for (var gl = 0; gl < 2; gl++) {
+      var gi = Math.floor(t / 14 + x / 50 + gl * 3) % 9 - 4;
+      c.globalAlpha = 0.5 + Math.sin(t / 4 + gl) * 0.4;
+      E.star(c, x + gi * 9, y + 12 + ((gi & 1) ? 5 : 0), 4);
+    }
     c.restore();
   }
 
@@ -154,7 +232,9 @@
     return PORTRAIT_LOOKS[((n % 8) + 8) % 8];
   }
   function drawPortrait(c, x, y, n) {
-    E.fillEllipse(c, x, y, 34, 42, PAL.gold);
+    c.save(); c.globalAlpha = 0.14; c.fillStyle = PAL.ink; c.beginPath(); c.ellipse(x + 7, y + 8, 34, 42, 0, 0, Math.PI * 2); c.fill(); c.restore();
+    E.fillEllipse(c, x, y, 34, 42, metal(c, x - 34, y - 42, x + 34, y + 42), false);
+    c.fillStyle = PAL.gold; c.beginPath(); c.ellipse(x, y, 34, 42, 0, 0, Math.PI * 2); E.ink(c, 2);
     E.fillEllipse(c, x, y, 29, 37, '#ffffff', false);
     E.drawLookTile(c, x, y, 70, portraitLook(n), 'hair', { round: true, bgTop: '#fff5fa', bgBot: '#ffd9ea' });
     c.beginPath(); c.ellipse(x, y, 29, 37, 0, 0, Math.PI * 2); E.ink(c, 1.5);
@@ -193,16 +273,36 @@
     E.fillEllipse(c, x - 24, y + 81, 3.5, 2.5, 'rgba(255,255,255,0.4)', false);
     E.fillRound(c, x + 25, y + 94, 3, 12, 1, '#8a5a3a', false);
     E.fillEllipse(c, x + 26.5, y + 90, 7, 7, '#ff9ccd', false);
+    /* glass: a glare band across the pane and a cooler lower corner */
+    var gg = c.createLinearGradient(x - w / 2, y, x + w / 2, y + h);
+    gg.addColorStop(0, 'rgba(255,255,255,0.4)'); gg.addColorStop(0.28, 'rgba(255,255,255,0.05)');
+    gg.addColorStop(0.3, 'rgba(255,255,255,0)'); gg.addColorStop(0.55, 'rgba(255,255,255,0)');
+    gg.addColorStop(0.62, 'rgba(255,255,255,0.18)'); gg.addColorStop(0.7, 'rgba(255,255,255,0)');
+    gg.addColorStop(1, 'rgba(120,80,160,0.14)');
+    c.fillStyle = gg; c.fillRect(x - w / 2, y, w, h);
     c.restore();
+    /* frame: a bevelled sill and mullions */
+    c.fillStyle = '#ffffff';
     E.roundRect(c, x - w / 2, y, w, h, 8);
     E.ink(c, 2);
-    c.strokeStyle = PAL.ink; c.lineWidth = 2;
+    c.strokeStyle = '#ffffff'; c.lineWidth = 4;
     c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + h); c.moveTo(x - w / 2, y + h / 2); c.lineTo(x + w / 2, y + h / 2); c.stroke();
-    /* curtains */
-    E.fillRound(c, x - w / 2 - 10, y - 10, 18, h + 20, 6, PAL.pink);
-    E.fillRound(c, x + w / 2 - 8, y - 10, 18, h + 20, 6, PAL.pink);
-    E.fillRound(c, x - w / 2 - 12, y + h * 0.55, 22, 6, 3, PAL.sun);
-    E.fillRound(c, x + w / 2 - 10, y + h * 0.55, 22, 6, 3, PAL.sun);
+    c.strokeStyle = PAL.ink; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + h); c.moveTo(x - w / 2, y + h / 2); c.lineTo(x + w / 2, y + h / 2); c.stroke();
+    var sill = c.createLinearGradient(0, y + h + 4, 0, y + h + 14);
+    sill.addColorStop(0, '#ffffff'); sill.addColorStop(1, '#e8cfe0');
+    E.fillRound(c, x - w / 2 - 12, y + h + 4, w + 24, 10, 3, sill);
+    c.fillStyle = 'rgba(74,42,64,0.16)'; c.fillRect(x - w / 2 - 10, y + h + 14, w + 20, 6);
+    /* curtains: folded cloth with brass tie-backs */
+    for (var cs = -1; cs <= 1; cs += 2) {
+      var cx = cs < 0 ? x - w / 2 - 10 : x + w / 2 - 8;
+      var cg = c.createLinearGradient(cx, 0, cx + 18, 0);
+      cg.addColorStop(0, E.shade(PAL.pink, -14)); cg.addColorStop(0.4, E.shade(PAL.pink, 18)); cg.addColorStop(0.7, PAL.pink); cg.addColorStop(1, E.shade(PAL.pink, -18));
+      E.fillRound(c, cx, y - 10, 18, h + 20, 6, cg, false);
+      c.fillStyle = PAL.pink; E.roundRect(c, cx, y - 10, 18, h + 20, 6); E.ink(c, 2);
+      E.fillRound(c, cx - 2, y + h * 0.55, 22, 6, 3, metal(c, 0, y + h * 0.55, 0, y + h * 0.55 + 6), false);
+      c.fillStyle = PAL.gold; E.roundRect(c, cx - 2, y + h * 0.55, 22, 6, 3); E.ink(c, 1.5);
+    }
   }
 
   function drawBunting(c, camX, t) {
@@ -235,16 +335,28 @@
       /* a framed portrait hangs under every plain bulb */
       if (!menu) drawPortrait(c, x, V.y + 154, k);
       var tw = 0.75 + Math.sin(t / 20 + wx) * 0.25;
-      c.strokeStyle = PAL.ink; c.lineWidth = 2;
-      c.beginPath(); c.moveTo(x, V.y - 4); c.lineTo(x, y - 14); c.stroke();
-      var g = c.createRadialGradient(x, y, 4, x, y, 44);
-      g.addColorStop(0, 'rgba(255, 240, 180, ' + (0.55 * tw) + ')');
-      g.addColorStop(1, 'rgba(255, 240, 180, 0)');
+      E.fillEllipse(c, x, V.y + 14, 9, 3, metal(c, x - 9, 0, x + 9, 0), false);
+      c.strokeStyle = '#6a4a20'; c.lineWidth = 1.6;
+      c.beginPath(); c.moveTo(x, V.y + 14); c.lineTo(x, y - 26); c.stroke();
+      c.save();
+      c.globalCompositeOperation = 'lighter';
+      var g = c.createRadialGradient(x, y, 4, x, y, 70);
+      g.addColorStop(0, 'rgba(255, 236, 170, ' + (0.6 * tw) + ')');
+      g.addColorStop(0.35, 'rgba(255, 224, 150, ' + (0.2 * tw) + ')');
+      g.addColorStop(1, 'rgba(255, 224, 150, 0)');
       c.fillStyle = g;
-      c.fillRect(x - 44, y - 44, 88, 88);
-      E.fillEllipse(c, x, y, 11, 11, '#fff3b0');
-      E.fillEllipse(c, x - 3, y - 4, 3, 2, '#ffffff', false);
-      E.fillRound(c, x - 6, y - 17, 12, 7, 3, PAL.gold);
+      c.fillRect(x - 70, y - 70, 140, 140);
+      c.restore();
+      /* a little pleated shade over the bulb */
+      var shg = c.createLinearGradient(x - 20, 0, x + 20, 0);
+      shg.addColorStop(0, '#d98cb8'); shg.addColorStop(0.4, '#ffd3ea'); shg.addColorStop(1, '#c9789f');
+      E.fillPath(c, [[x - 12, y - 26], [x + 12, y - 26], [x + 22, y - 4], [x - 22, y - 4]], shg);
+      c.strokeStyle = 'rgba(255,255,255,0.45)'; c.lineWidth = 1;
+      for (var pl = -2; pl <= 2; pl++) { c.beginPath(); c.moveTo(x + pl * 5, y - 25); c.lineTo(x + pl * 9, y - 5); c.stroke(); }
+      E.fillRound(c, x - 23, y - 6, 46, 3, 1.5, metal(c, x - 23, 0, x + 23, 0), false);
+      var bg = c.createRadialGradient(x - 3, y + 2, 1, x, y + 4, 11);
+      bg.addColorStop(0, '#ffffff'); bg.addColorStop(0.5, '#fff3b0'); bg.addColorStop(1, '#f6cf6a');
+      E.fillEllipse(c, x, y + 4, 10, 10, bg);
     }
   }
 
@@ -264,8 +376,9 @@
     var bottom = V.y + V.h;
     var vpX = V.x + V.w / 2;
     var g = c.createLinearGradient(0, groundY, 0, bottom);
-    g.addColorStop(0, '#ecc3d5');
-    g.addColorStop(1, '#d9a2b9');
+    g.addColorStop(0, '#e2b6cc');
+    g.addColorStop(0.5, '#cf9cb8');
+    g.addColorStop(1, '#b57ea0');
     c.fillStyle = g;
     c.fillRect(V.x, groundY, V.w, bottom - groundY);
 
@@ -284,9 +397,9 @@
         if (Math.max(xA1, xB1) < V.x || Math.min(xA0, xB0) > V.x + V.w) continue;
         c.beginPath();
         c.moveTo(xA0, yA); c.lineTo(xA1, yA); c.lineTo(xB1, yB); c.lineTo(xB0, yB); c.closePath();
-        c.fillStyle = ((j + k) & 1) ? 'rgba(255,255,255,0.16)' : 'rgba(120,50,90,0.07)';
+        c.fillStyle = ((j + k) & 1) ? 'rgba(255,255,255,0.14)' : 'rgba(90,30,80,0.09)';
         c.fill();
-        c.strokeStyle = 'rgba(255,255,255,0.32)';
+        c.strokeStyle = 'rgba(255,255,255,0.28)';
         c.lineWidth = 1;
         c.stroke();
       }
@@ -328,12 +441,59 @@
       c.translate(x, groundY + 26);
       c.scale(1, 0.26);
       var g = c.createRadialGradient(0, 0, 2, 0, 0, rx);
-      g.addColorStop(0, 'rgba(255, 236, 190, ' + (0.26 * tw) + ')');
-      g.addColorStop(0.5, 'rgba(255, 236, 190, ' + (0.1 * tw) + ')');
+      g.addColorStop(0, 'rgba(255, 236, 190, ' + (0.38 * tw) + ')');
+      g.addColorStop(0.5, 'rgba(255, 236, 190, ' + (0.14 * tw) + ')');
       g.addColorStop(1, 'rgba(255, 236, 190, 0)');
       c.fillStyle = g;
       c.fillRect(-rx, -rx, rx * 2, rx * 2);
       c.restore();
+    }
+    /* sunlight landing on the floor under each window */
+    var wspan = Game.STUDIO.stationGap * 2, woff = 60;
+    var wstart = Math.floor((camX * 0.85 + V.x - woff) / wspan) * wspan - wspan;
+    for (var wx2 = wstart; wx2 < camX * 0.85 + V.x + V.w + wspan; wx2 += wspan) {
+      var sx = wx2 - camX * 0.85 + woff - 110;
+      c.save();
+      c.translate(sx, groundY + 36);
+      c.scale(1, 0.3);
+      var sg = c.createRadialGradient(0, 0, 4, 0, 0, 120);
+      sg.addColorStop(0, 'rgba(255, 250, 226, 0.4)');
+      sg.addColorStop(0.5, 'rgba(255, 250, 226, 0.14)');
+      sg.addColorStop(1, 'rgba(255, 250, 226, 0)');
+      c.fillStyle = sg;
+      c.fillRect(-120, -120, 240, 240);
+      c.restore();
+    }
+    c.restore();
+  }
+
+  /* Dust turning slowly in the sunbeams: the cheapest volumetric light
+     there is. Seeded, so it costs nothing to rebuild each frame. */
+  var MOTES = (function () {
+    var rnd = E.seeded(1313), out = [];
+    for (var i = 0; i < 18; i++) out.push({ u: rnd(), v: rnd(), sp: 0.15 + rnd() * 0.25, ph: rnd() * 6.28, r: 0.8 + rnd() * 1.1 });
+    return out;
+  })();
+  function drawMotes(c, camX, groundY, winShift, t) {
+    var V = view();
+    var span = Game.STUDIO.stationGap * 2;
+    var off = 60 + (winShift || 0);
+    var start = Math.floor((camX * 0.85 + V.x - off) / span) * span - span;
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    c.fillStyle = '#fff8e6';
+    for (var wx = start; wx < camX * 0.85 + V.x + V.w + span; wx += span) {
+      var x = wx - camX * 0.85 + off, y = groundY - 226;
+      for (var i = 0; i < MOTES.length; i++) {
+        var m = MOTES[i];
+        var v = ((m.v + t * m.sp / 600) % 1 + 1) % 1;
+        var u = m.u + Math.sin(t / 90 + m.ph) * 0.08;
+        /* the shaft runs from the sill down and left to the floor */
+        var top = x - 46 + u * 92, bot = x - 190 + u * 150;
+        var px = top + (bot - top) * v, py = y + (groundY + 30 - y) * v;
+        c.globalAlpha = 0.35 + Math.sin(t / 7 + m.ph) * 0.25;
+        c.beginPath(); c.arc(px, py, m.r, 0, Math.PI * 2); c.fill();
+      }
     }
     c.restore();
   }
@@ -355,6 +515,7 @@
     drawFloor(c, camX, groundY);
     drawLightPools(c, camX, groundY, t);
     drawFloorShadow(c, groundY);
+    drawMotes(c, camX, groundY, winShift, t);
   }
 
   /* ---- Reflections ----
@@ -492,8 +653,8 @@
     for (var wx = start; wx < camX * 0.85 + V.x + V.w + span; wx += span) {
       var x = wx - camX * 0.85 + off, y = groundY - 226;
       var g = c.createLinearGradient(x, y, x - 90, groundY + 40);
-      g.addColorStop(0, 'rgba(255, 246, 214, 0.26)');
-      g.addColorStop(0.6, 'rgba(255, 246, 214, 0.08)');
+      g.addColorStop(0, 'rgba(255, 246, 214, 0.34)');
+      g.addColorStop(0.6, 'rgba(255, 246, 214, 0.1)');
       g.addColorStop(1, 'rgba(255, 246, 214, 0)');
       c.fillStyle = g;
       c.beginPath();
@@ -507,11 +668,12 @@
   /* Ambient occlusion where the wall meets the floor. */
   function drawFloorShadow(c, groundY) {
     var V = view();
-    var g = c.createLinearGradient(0, groundY - 2, 0, groundY + 22);
-    g.addColorStop(0, 'rgba(74, 42, 64, 0.22)');
+    var g = c.createLinearGradient(0, groundY - 2, 0, groundY + 30);
+    g.addColorStop(0, 'rgba(74, 42, 64, 0.3)');
+    g.addColorStop(0.4, 'rgba(74, 42, 64, 0.1)');
     g.addColorStop(1, 'rgba(74, 42, 64, 0)');
     c.fillStyle = g;
-    c.fillRect(V.x, groundY - 2, V.w, 24);
+    c.fillRect(V.x, groundY - 2, V.w, 32);
   }
 
   /* ================================================================
@@ -548,8 +710,21 @@
     var n = 6, seg = w / n;
     for (var i = 0; i < n; i++) {
       var ax = x - w / 2 + i * seg;
-      E.fillPath(c, [[ax, y], [ax + seg, y], [ax + seg - 2 + sway, y + 22], [ax + 2 + sway, y + 22]],
-        i % 2 === 0 ? col : PAL.cream);
+      var base = i % 2 === 0 ? col : PAL.cream;
+      E.fillPath(c, [[ax, y], [ax + seg, y], [ax + seg - 2 + sway, y + 22], [ax + 2 + sway, y + 22]], base);
+      /* each stripe is a bolt of cloth: lit on one side, shaded in the seam */
+      c.save();
+      c.beginPath(); c.moveTo(ax, y); c.lineTo(ax + seg, y); c.lineTo(ax + seg - 2 + sway, y + 22); c.lineTo(ax + 2 + sway, y + 22); c.closePath(); c.clip();
+      var fg = c.createLinearGradient(ax, 0, ax + seg, 0);
+      fg.addColorStop(0, 'rgba(74,42,64,0.22)');
+      fg.addColorStop(0.35, 'rgba(255,255,255,0.22)');
+      fg.addColorStop(0.7, 'rgba(255,255,255,0.02)');
+      fg.addColorStop(1, 'rgba(74,42,64,0.18)');
+      c.fillStyle = fg; c.fillRect(ax - 2, y, seg + 4, 24);
+      var vg = c.createLinearGradient(0, y, 0, y + 22);
+      vg.addColorStop(0, 'rgba(255,255,255,0.18)'); vg.addColorStop(1, 'rgba(74,42,64,0.12)');
+      c.fillStyle = vg; c.fillRect(ax - 2, y, seg + 4, 24);
+      c.restore();
     }
     c.beginPath();
     for (var k = 0; k < n; k++) {
@@ -557,10 +732,17 @@
       c.moveTo(sx, y + 22);
       c.arc(sx + seg / 2, y + 22, seg / 2, Math.PI, 0, true);
     }
-    c.fillStyle = col;
+    var sg = c.createLinearGradient(0, y + 22, 0, y + 22 + seg / 2);
+    sg.addColorStop(0, E.shade(col, 10)); sg.addColorStop(1, E.shade(col, -22));
+    c.fillStyle = sg;
     c.fill();
+    c.fillStyle = col;
     E.ink(c, 2);
-    E.fillRound(c, x - w / 2 - 4, y - 5, w + 8, 8, 4, E.shade(col, -18));
+    /* the brass rail it hangs from */
+    E.fillRound(c, x - w / 2 - 4, y - 5, w + 8, 8, 4, metal(c, 0, y - 5, 0, y + 3), false);
+    c.fillStyle = PAL.gold; E.roundRect(c, x - w / 2 - 4, y - 5, w + 8, 8, 4); E.ink(c, 1.5);
+    E.fillEllipse(c, x - w / 2 - 6, y - 1, 5, 5, metal(c, x - w / 2 - 11, 0, x - w / 2 - 1, 0));
+    E.fillEllipse(c, x + w / 2 + 6, y - 1, 5, 5, metal(c, x + w / 2 + 1, 0, x + w / 2 + 11, 0));
   }
 
   function drawBoothProps(c, st, x, groundY) {
@@ -589,7 +771,17 @@
   function drawStation(c, st, groundY, t, near) {
     var x = st.x;
     var bob = Math.sin(t / 18 + st.x) * 2;
-    E.softShadow(c, x, groundY + 2, 110, 10, 0.2);
+    E.softShadow(c, x, groundY + 2, 110, 10, 0.22);
+
+    /* the booth throws a soft shadow down and right onto the wall */
+    c.save();
+    c.fillStyle = 'rgba(74, 42, 64, 0.1)';
+    E.roundRect(c, x - 78 + 22, groundY - 212 + 26, 170, 170, 16); c.fill();
+    c.fillStyle = 'rgba(74, 42, 64, 0.12)';
+    E.roundRect(c, x - 78 + 12, groundY - 212 + 14, 164, 166, 14); c.fill();
+    c.fillStyle = 'rgba(74, 42, 64, 0.1)';
+    E.roundRect(c, x - 92 + 10, groundY - 217 + 8, 184, 20, 6); c.fill();
+    c.restore();
 
     /* back board with a lit side */
     E.fillRound(c, x - 78, groundY - 196, 156, 152, 10, '#ffffff');
@@ -642,23 +834,47 @@
     c.fillStyle = ag;
     c.fillRect(x - 74, groundY - 192, 148, 36);
     c.restore();
+    /* inner shadow round the board so it sits inside its frame */
+    c.save();
+    E.roundRect(c, x - 74, groundY - 192, 148, 144, 8); c.clip();
+    var ivl = c.createLinearGradient(x - 74, 0, x - 58, 0);
+    ivl.addColorStop(0, 'rgba(74,42,64,0.16)'); ivl.addColorStop(1, 'rgba(74,42,64,0)');
+    c.fillStyle = ivl; c.fillRect(x - 74, groundY - 192, 16, 144);
+    var ivr = c.createLinearGradient(x + 74, 0, x + 54, 0);
+    ivr.addColorStop(0, 'rgba(74,42,64,0.2)'); ivr.addColorStop(1, 'rgba(74,42,64,0)');
+    c.fillStyle = ivr; c.fillRect(x + 54, groundY - 192, 20, 144);
+    c.restore();
     E.roundRect(c, x - 74, groundY - 192, 148, 144, 8);
+    c.fillStyle = '#ffffff';
     E.ink(c, 2);
 
     /* the display: a round mirror showing what this station changes */
     var mr = 44;
     var my = groundY - 128 + bob;
-    E.softShadow(c, x + 4, my + 8, mr + 6, mr + 6, 0.12);
-    E.fillEllipse(c, x, my, mr + 6, mr + 6, PAL.gold);
+    E.softShadow(c, x + 6, my + 10, mr + 8, mr + 8, 0.16);
+    E.fillEllipse(c, x, my, mr + 7, mr + 7, metal(c, x - mr - 7, my - mr - 7, x + mr + 7, my + mr + 7));
+    c.fillStyle = PAL.gold;
+    c.beginPath(); c.arc(x, my, mr + 7, 0, Math.PI * 2); E.ink(c, 2);
     E.fillEllipse(c, x, my, mr + 2, mr + 2, '#ffffff', false);
     var sample = stationSample(st);
     E.drawLookTile(c, x, my, mr * 2, sample, st.id, { round: true, t: t });
-    c.beginPath(); c.arc(x, my, mr, 0, Math.PI * 2); E.ink(c, 2);
-    c.save(); c.globalAlpha = 0.45; E.fillEllipse(c, x - 16, my - 22, 9, 4, '#ffffff', false); c.restore();
+    /* glass: a curved glare across the top left and a shadow in the lower rim */
+    c.save();
+    c.beginPath(); c.arc(x, my, mr, 0, Math.PI * 2); c.clip();
+    var gl = c.createLinearGradient(x - mr, my - mr, x + mr * 0.4, my + mr * 0.4);
+    gl.addColorStop(0, 'rgba(255,255,255,0.5)'); gl.addColorStop(0.35, 'rgba(255,255,255,0.08)'); gl.addColorStop(0.36, 'rgba(255,255,255,0)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = gl; c.fillRect(x - mr, my - mr, mr * 2, mr * 2);
+    var rimS = c.createRadialGradient(x, my, mr * 0.7, x, my, mr);
+    rimS.addColorStop(0, 'rgba(74,42,64,0)'); rimS.addColorStop(1, 'rgba(74,42,64,0.22)');
+    c.fillStyle = rimS; c.fillRect(x - mr, my - mr, mr * 2, mr * 2);
+    c.restore();
+    c.beginPath(); c.arc(x, my, mr, 0, Math.PI * 2); c.fillStyle = PAL.gold; E.ink(c, 2);
     /* gem studs round the frame */
     for (var gs = 0; gs < 8; gs++) {
       var ga = gs * Math.PI / 4 + Math.PI / 8;
-      E.fillEllipse(c, x + Math.cos(ga) * (mr + 3), my + Math.sin(ga) * (mr + 3), 2.2, 2.2, gs % 2 ? PAL.pink : '#ffffff', false);
+      var gx = x + Math.cos(ga) * (mr + 3.5), gy = my + Math.sin(ga) * (mr + 3.5);
+      E.fillEllipse(c, gx, gy, 2.6, 2.6, gs % 2 ? PAL.pink : '#dff4ff', false);
+      E.fillEllipse(c, gx - 0.7, gy - 0.8, 0.9, 0.9, '#ffffff', false);
     }
 
     /* counter: striped front, shaded end, wooden top */
@@ -674,32 +890,57 @@
     c.fillStyle = cg;
     c.fillRect(x - 72, groundY - 62, 144, 62);
     c.restore();
-    E.roundRect(c, x - 72, groundY - 62, 144, 62, 6); E.ink(c, 2);
-    /* the counter top's shadow on the striped front */
+    E.roundRect(c, x - 72, groundY - 62, 144, 62, 6); c.fillStyle = st.hue; E.ink(c, 2);
+    /* the counter top's shadow on the striped front, and the floor's
+       bounce darkening its foot */
     c.save();
     E.roundRect(c, x - 72, groundY - 62, 144, 62, 6); c.clip();
-    var sg = c.createLinearGradient(0, groundY - 58, 0, groundY - 40);
-    sg.addColorStop(0, 'rgba(74, 42, 64, 0.28)');
+    var sg = c.createLinearGradient(0, groundY - 58, 0, groundY - 36);
+    sg.addColorStop(0, 'rgba(74, 42, 64, 0.32)');
     sg.addColorStop(1, 'rgba(74, 42, 64, 0)');
     c.fillStyle = sg;
-    c.fillRect(x - 72, groundY - 58, 144, 20);
+    c.fillRect(x - 72, groundY - 58, 144, 24);
+    var fg2 = c.createLinearGradient(0, groundY - 14, 0, groundY);
+    fg2.addColorStop(0, 'rgba(74, 42, 64, 0)');
+    fg2.addColorStop(1, 'rgba(74, 42, 64, 0.24)');
+    c.fillStyle = fg2;
+    c.fillRect(x - 72, groundY - 14, 144, 14);
     c.restore();
-    E.fillRound(c, x - 80, groundY - 70, 160, 14, 5, PAL.wood);
-    c.fillStyle = 'rgba(255,255,255,0.45)'; c.fillRect(x - 78, groundY - 68, 156, 3);
-    c.fillStyle = 'rgba(74,42,64,0.15)'; c.fillRect(x - 78, groundY - 59, 156, 2);
+    /* a wooden top with a lacquered edge */
+    var wt = c.createLinearGradient(0, groundY - 70, 0, groundY - 56);
+    wt.addColorStop(0, '#e2a874'); wt.addColorStop(0.45, PAL.wood); wt.addColorStop(1, PAL.woodDark);
+    E.fillRound(c, x - 80, groundY - 70, 160, 14, 5, wt);
+    c.fillStyle = PAL.wood; E.roundRect(c, x - 80, groundY - 70, 160, 14, 5); E.ink(c, 2);
+    c.fillStyle = 'rgba(255,255,255,0.55)'; c.fillRect(x - 76, groundY - 68, 152, 2);
+    c.fillStyle = 'rgba(255,255,255,0.18)'; c.fillRect(x - 76, groundY - 66, 152, 3);
     drawBoothProps(c, st, x, groundY);
 
     drawAwning(c, x, groundY - 212, 176, st.hue, t);
-    /* fairy lights under the awning */
+    /* fairy lights under the awning, each one lighting a little of the board */
+    c.strokeStyle = 'rgba(74,42,64,0.35)'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(x - 74, groundY - 189); c.quadraticCurveTo(x, groundY - 181, x + 74, groundY - 189); c.stroke();
     for (var fl = 0; fl < 7; fl++) {
       var lx = x - 72 + fl * 24, on = ((fl + Math.floor(t / 12)) % 3) === 0;
-      E.fillEllipse(c, lx, groundY - 186 + Math.sin(fl * 1.3) * 2, 2.6, 2.6, on ? '#fff6c8' : PAL.sun, false);
+      var ly = groundY - 188 + 6 * (1 - Math.pow((fl - 3) / 3, 2));
+      if (on) {
+        c.save(); c.globalCompositeOperation = 'lighter';
+        var lg = c.createRadialGradient(lx, ly, 1, lx, ly, 12);
+        lg.addColorStop(0, 'rgba(255,240,190,0.5)'); lg.addColorStop(1, 'rgba(255,240,190,0)');
+        c.fillStyle = lg; c.fillRect(lx - 12, ly - 12, 24, 24);
+        c.restore();
+      }
+      E.fillEllipse(c, lx, ly, 2.8, 2.8, on ? '#fff6c8' : PAL.sun, false);
     }
 
     /* sign */
     var label = T(st.labelKey);
-    c.save(); c.globalAlpha = 0.2; E.fillRound(c, x - 70, groundY - 232, 140, 26, 8, PAL.ink, false); c.restore();
-    E.fillRound(c, x - 70, groundY - 236, 140, 26, 8, PAL.cream);
+    c.save(); c.globalAlpha = 0.22; E.fillRound(c, x - 70, groundY - 231, 140, 26, 8, PAL.ink, false); c.restore();
+    var pg = c.createLinearGradient(0, groundY - 236, 0, groundY - 210);
+    pg.addColorStop(0, '#ffffff'); pg.addColorStop(1, '#f6e4dc');
+    E.fillRound(c, x - 70, groundY - 236, 140, 26, 8, pg, false);
+    c.fillStyle = PAL.cream; E.roundRect(c, x - 70, groundY - 236, 140, 26, 8); E.ink(c, 2);
+    E.fillRound(c, x - 66, groundY - 233, 132, 20, 6, 'rgba(255,255,255,0)', false);
+    c.strokeStyle = 'rgba(242,182,50,0.8)'; c.lineWidth = 1.2; E.roundRect(c, x - 66, groundY - 232, 132, 18, 6); c.stroke();
     c.fillStyle = PAL.ink;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
@@ -746,7 +987,9 @@
   }
   function drawPoster(c, x, groundY, n) {
     var y = groundY - 200, w = 70, h = 92;
-    E.fillRound(c, x - w / 2 - 5, y - 5, w + 10, h + 10, 6, PAL.gold);
+    c.save(); c.globalAlpha = 0.14; c.fillStyle = PAL.ink; E.roundRect(c, x - w / 2 + 6, y + 8, w + 10, h + 10, 6); c.fill(); c.restore();
+    E.fillRound(c, x - w / 2 - 5, y - 5, w + 10, h + 10, 6, metal(c, x - w / 2 - 5, y - 5, x + w / 2 + 5, y + h + 5), false);
+    c.fillStyle = PAL.gold; E.roundRect(c, x - w / 2 - 5, y - 5, w + 10, h + 10, 6); E.ink(c, 2);
     E.fillRound(c, x - w / 2, y, w, h, 3, '#ffffff', false);
     var look = decorLook(n + 3);
     E.drawLookTile(c, x, y + h / 2, 66, look, 'dress', { round: false, bgTop: '#fff5fa', bgBot: '#ffd9ea' });
@@ -763,20 +1006,40 @@
   function drawLamp(c, x, groundY, t) {
     E.softShadow(c, x, groundY + 2, 20, 5, 0.18);
     E.fillEllipse(c, x, groundY - 2, 16, 5, PAL.woodDark);
-    E.fillRound(c, x - 2.5, groundY - 150, 5, 148, 2, PAL.gold);
+    E.fillRound(c, x - 2.5, groundY - 150, 5, 148, 2, metal(c, x - 2.5, 0, x + 2.5, 0), false);
+    c.fillStyle = PAL.gold; E.roundRect(c, x - 2.5, groundY - 150, 5, 148, 2); E.ink(c, 2);
     var tw = 0.8 + Math.sin(t / 15) * 0.2;
-    var g = c.createRadialGradient(x, groundY - 160, 5, x, groundY - 160, 60);
-    g.addColorStop(0, 'rgba(255,240,180,' + 0.45 * tw + ')');
-    g.addColorStop(1, 'rgba(255,240,180,0)');
-    c.fillStyle = g; c.fillRect(x - 60, groundY - 220, 120, 120);
-    E.fillPath(c, [[x - 26, groundY - 150], [x + 26, groundY - 150], [x + 16, groundY - 186], [x - 16, groundY - 186]], PAL.lavender);
-    E.fillRound(c, x - 28, groundY - 152, 56, 5, 2, PAL.gold, false);
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    var g = c.createRadialGradient(x, groundY - 165, 5, x, groundY - 165, 90);
+    g.addColorStop(0, 'rgba(255,236,170,' + 0.5 * tw + ')');
+    g.addColorStop(0.4, 'rgba(255,224,150,' + 0.16 * tw + ')');
+    g.addColorStop(1, 'rgba(255,224,150,0)');
+    c.fillStyle = g; c.fillRect(x - 90, groundY - 255, 180, 180);
+    /* the shade throws a cone of light down the stand to the floor */
+    var cone = c.createLinearGradient(0, groundY - 150, 0, groundY + 10);
+    cone.addColorStop(0, 'rgba(255,236,180,' + 0.22 * tw + ')');
+    cone.addColorStop(1, 'rgba(255,236,180,0)');
+    c.fillStyle = cone;
+    c.beginPath(); c.moveTo(x - 24, groundY - 150); c.lineTo(x + 24, groundY - 150); c.lineTo(x + 70, groundY + 10); c.lineTo(x - 70, groundY + 10); c.closePath(); c.fill();
+    c.restore();
+    var lg = c.createLinearGradient(x - 26, 0, x + 26, 0);
+    lg.addColorStop(0, E.shade(PAL.lavender, -18)); lg.addColorStop(0.35, E.shade(PAL.lavender, 24)); lg.addColorStop(1, E.shade(PAL.lavender, -22));
+    E.fillPath(c, [[x - 26, groundY - 150], [x + 26, groundY - 150], [x + 16, groundY - 186], [x - 16, groundY - 186]], lg, true, false);
+    c.fillStyle = PAL.lavender; c.beginPath(); c.moveTo(x - 26, groundY - 150); c.lineTo(x + 26, groundY - 150); c.lineTo(x + 16, groundY - 186); c.lineTo(x - 16, groundY - 186); c.closePath(); E.ink(c, 2);
+    c.save(); c.globalAlpha = 0.5; c.fillStyle = '#fff6d0';
+    c.beginPath(); c.moveTo(x - 20, groundY - 152); c.lineTo(x + 20, groundY - 152); c.lineTo(x + 14, groundY - 160); c.lineTo(x - 14, groundY - 160); c.closePath(); c.fill(); c.restore();
+    E.fillRound(c, x - 28, groundY - 152, 56, 5, 2, metal(c, 0, groundY - 152, 0, groundY - 147), false);
   }
   function drawMirror(c, x, groundY) {
     E.softShadow(c, x, groundY + 2, 26, 6, 0.18);
+    c.save(); c.globalAlpha = 0.12; c.fillStyle = PAL.ink;
+    c.beginPath(); c.ellipse(x + 16, groundY - 98, 38, 86, 0, 0, Math.PI * 2); c.fill(); c.restore();
     E.fillEllipse(c, x, groundY - 2, 22, 6, PAL.woodDark);
-    E.fillRound(c, x - 3, groundY - 30, 6, 28, 2, PAL.gold);
-    E.fillEllipse(c, x, groundY - 110, 36, 84, PAL.gold);
+    E.fillRound(c, x - 3, groundY - 30, 6, 28, 2, metal(c, x - 3, 0, x + 3, 0), false);
+    c.fillStyle = PAL.gold; E.roundRect(c, x - 3, groundY - 30, 6, 28, 2); E.ink(c, 2);
+    E.fillEllipse(c, x, groundY - 110, 36, 84, metal(c, x - 36, groundY - 194, x + 36, groundY - 26), false);
+    c.fillStyle = PAL.gold; c.beginPath(); c.ellipse(x, groundY - 110, 36, 84, 0, 0, Math.PI * 2); E.ink(c, 2);
     c.save();
     c.beginPath(); c.ellipse(x, groundY - 110, 30, 78, 0, 0, Math.PI * 2); c.clip();
     var g = c.createLinearGradient(x - 30, groundY - 188, x + 30, groundY - 32);
@@ -828,7 +1091,8 @@
     c.arc(x, groundY - 150, 56, Math.PI, 0);
     c.lineTo(x + 56, groundY);
     c.closePath();
-    c.fillStyle = PAL.gold; c.fill(); E.ink(c, 2.5);
+    c.fillStyle = metal(c, x - 56, groundY - 206, x + 56, groundY); c.fill();
+    c.fillStyle = PAL.gold; E.ink(c, 2.5);
     c.beginPath();
     c.moveTo(x - 44, groundY);
     c.lineTo(x - 44, groundY - 150);
@@ -1051,9 +1315,31 @@
       core.addColorStop(1, 'rgba(255,255,255,0)');
       c.fillStyle = core;
       c.beginPath(); c.moveTo(-3, 0); c.lineTo(3, 0); c.lineTo(22, len); c.lineTo(-22, len); c.closePath(); c.fill();
-      /* the lamp itself */
+      /* the lamp itself, with the streak it throws across the lens */
       c.restore();
-      E.fillEllipse(c, rx, ry + 6, 9, 5, 'rgba(255,250,235,0.9)', false);
+      var fl = c.createLinearGradient(rx - 150, 0, rx + 150, 0);
+      fl.addColorStop(0, 'rgba(' + rigs[i][1] + ',0)');
+      fl.addColorStop(0.5, 'rgba(255,255,255,' + (0.28 + Math.sin(t / 11 + i) * 0.06) + ')');
+      fl.addColorStop(1, 'rgba(' + rigs[i][1] + ',0)');
+      c.fillStyle = fl;
+      c.fillRect(rx - 150, ry + 4, 300, 4);
+      var fg = c.createRadialGradient(rx, ry + 6, 1, rx, ry + 6, 34);
+      fg.addColorStop(0, 'rgba(255,255,255,0.6)');
+      fg.addColorStop(0.3, 'rgba(' + rigs[i][1] + ',0.25)');
+      fg.addColorStop(1, 'rgba(' + rigs[i][1] + ',0)');
+      c.fillStyle = fg;
+      c.fillRect(rx - 34, ry - 28, 68, 68);
+      /* a couple of ghost rings down the lens axis */
+      for (var gh = 1; gh <= 2; gh++) {
+        var gx = rx + (spotX - rx) * gh * 0.3, gy = ry + (feetY - ry) * gh * 0.3;
+        var gg = c.createRadialGradient(gx, gy, 0, gx, gy, 8 + gh * 7);
+        gg.addColorStop(0, 'rgba(' + rigs[i][1] + ',' + (0.1 / gh) + ')');
+        gg.addColorStop(0.7, 'rgba(' + rigs[i][1] + ',' + (0.04 / gh) + ')');
+        gg.addColorStop(1, 'rgba(' + rigs[i][1] + ',0)');
+        c.fillStyle = gg;
+        c.fillRect(gx - 24, gy - 24, 48, 48);
+      }
+      E.fillEllipse(c, rx, ry + 6, 9, 5, 'rgba(255,250,235,0.95)', false);
     }
     c.restore();
   }
@@ -1184,17 +1470,48 @@
       E.fillEllipse(c, swx, curtainTop + 28, 5, 7, '#e0a52a', false);
     }
     if (spotX !== null && spotX !== undefined) drawFollowSpots(c, spotX, t);
-    /* big glittery name */
+    /* the name in neon: a glowing tube over a dark backing plate */
     c.save();
     c.textAlign = 'center'; c.textBaseline = 'middle';
     c.font = 'bold 40px "M PLUS Rounded 1c", sans-serif';
     var title = T('title2');
     fitText(c, title, 520, 40);
+    var ttw = c.measureText(title).width;
+    c.fillStyle = 'rgba(40, 10, 50, 0.55)';
+    E.roundRect(c, W / 2 - ttw / 2 - 30, 92, ttw + 60, 58, 14); c.fill();
+    c.strokeStyle = 'rgba(255,255,255,0.12)'; c.lineWidth = 1.5;
+    E.roundRect(c, W / 2 - ttw / 2 - 30, 92, ttw + 60, 58, 14); c.stroke();
+    var flicker = 0.85 + Math.sin(t / 3) * 0.05 + Math.sin(t / 7.3) * 0.1;
+    /* the tube's glow, blurred once into a sprite and re-laid every frame */
+    var glowW = Math.ceil(ttw) + 120, glowH = 120;
+    var font = c.font;
+    var glow = E.getCachedSprite('neon:' + title + ':' + font, glowW, glowH, function (g) {
+      g.font = font;
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.globalCompositeOperation = 'lighter';
+      g.shadowColor = 'rgba(255, 120, 200, 1)';
+      g.shadowBlur = 22;
+      g.fillStyle = 'rgba(255, 140, 210, 0.55)';
+      g.fillText(title, glowW / 2, glowH / 2);
+      g.shadowBlur = 8;
+      g.shadowColor = 'rgba(255, 230, 120, 1)';
+      g.fillStyle = 'rgba(255, 230, 120, 0.45)';
+      g.fillText(title, glowW / 2, glowH / 2);
+    });
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    c.globalAlpha = flicker;
+    E.drawSprite(c, glow, W / 2 - glowW / 2, 120 - glowH / 2);
+    c.restore();
     c.lineJoin = 'round';
     c.strokeStyle = PAL.pinkDeep; c.lineWidth = 8;
     c.strokeText(title, W / 2, 120);
-    c.fillStyle = PAL.sun;
+    var ng = c.createLinearGradient(0, 100, 0, 140);
+    ng.addColorStop(0, '#fff8d0'); ng.addColorStop(0.5, PAL.sun); ng.addColorStop(1, '#f0a830');
+    c.fillStyle = ng;
     c.fillText(title, W / 2, 120);
+    c.fillStyle = 'rgba(255,255,255,0.55)';
+    c.save(); c.beginPath(); c.rect(0, 96, W, 16); c.clip(); c.fillText(title, W / 2, 120); c.restore();
     for (var s = 0; s < 10; s++) {
       var tw = Math.sin(t / 8 + s * 1.7);
       if (tw <= 0) continue;
@@ -1223,26 +1540,67 @@
     }
     drawBalloons(c, t);
 
-    /* catwalk slab */
+    /* stage haze: slow banks of fog rolling along the curtain foot and
+       catching the beams */
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (var hz2 = 0; hz2 < 4; hz2++) {
+      var hx = V.x + ((t * (0.25 + hz2 * 0.08) + hz2 * 370) % (V.w + 500)) - 250;
+      var hy = 262 + Math.sin(t / 60 + hz2) * 6 + (hz2 % 2) * 14;
+      c.save();
+      c.translate(hx, hy);
+      c.scale(1, 0.22);
+      var fg = c.createRadialGradient(0, 0, 10, 0, 0, 220);
+      fg.addColorStop(0, 'rgba(255, 210, 240, 0.12)');
+      fg.addColorStop(1, 'rgba(255, 210, 240, 0)');
+      c.fillStyle = fg;
+      c.fillRect(-220, -220, 440, 440);
+      c.restore();
+    }
+    c.restore();
+
+    /* catwalk slab: a polished top and a thick front face */
     var ST = RUNWAY.stageTop, SB = RUNWAY.stageBottom;
-    c.fillStyle = '#f1dcea';
-    c.fillRect(V.x, ST, V.w, SB - ST);
-    var runner = c.createLinearGradient(0, ST, 0, SB);
-    runner.addColorStop(0, PAL.pinkDeep);
-    runner.addColorStop(1, '#b23a7a');
+    var edge = c.createLinearGradient(0, ST, 0, ST + 8);
+    edge.addColorStop(0, '#fff2fa'); edge.addColorStop(1, '#e9cde0');
+    c.fillStyle = edge;
+    c.fillRect(V.x, ST, V.w, 8);
+    var runner = c.createLinearGradient(0, ST + 8, 0, SB - 8);
+    runner.addColorStop(0, '#ff7fb8');
+    runner.addColorStop(0.25, PAL.pinkDeep);
+    runner.addColorStop(1, '#a8336f');
     c.fillStyle = runner;
     c.fillRect(V.x, ST + 8, V.w, SB - ST - 16);
-    c.fillStyle = 'rgba(255,255,255,0.35)';
+    c.fillStyle = 'rgba(255,255,255,0.4)';
     c.fillRect(V.x, ST + 8, V.w, 3);
-    /* glossy sheen on the runway */
+    /* the curtain's glow and the beams reflected in the polish */
     var sheen = c.createLinearGradient(0, ST + 8, 0, SB - 8);
-    sheen.addColorStop(0, 'rgba(255,255,255,0.22)');
-    sheen.addColorStop(0.5, 'rgba(255,255,255,0.02)');
-    sheen.addColorStop(1, 'rgba(255,255,255,0.1)');
+    sheen.addColorStop(0, 'rgba(255,255,255,0.26)');
+    sheen.addColorStop(0.45, 'rgba(255,255,255,0.03)');
+    sheen.addColorStop(1, 'rgba(255,255,255,0.12)');
     c.fillStyle = sheen;
     c.fillRect(V.x, ST + 8, V.w, SB - ST - 16);
-    c.fillStyle = '#c9a8c0';
-    c.fillRect(V.x, SB, V.w, 10);
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (var rb = 0; rb < beams.length; rb++) {
+      var rbx = beams[rb][0] + Math.sin(t / 60 + beams[rb][2]) * 160;
+      var rg = c.createLinearGradient(rbx - 90, 0, rbx + 90, 0);
+      rg.addColorStop(0, 'rgba(' + beams[rb][1] + ',0)');
+      rg.addColorStop(0.5, 'rgba(' + beams[rb][1] + ',0.16)');
+      rg.addColorStop(1, 'rgba(' + beams[rb][1] + ',0)');
+      c.fillStyle = rg;
+      c.fillRect(rbx - 90, ST + 8, 180, SB - ST - 16);
+    }
+    c.restore();
+    /* front face: the slab's thickness, dark under the lip */
+    var face = c.createLinearGradient(0, SB - 8, 0, SB + 10);
+    face.addColorStop(0, '#f3dcea');
+    face.addColorStop(0.3, '#b98bb0');
+    face.addColorStop(1, '#5e3560');
+    c.fillStyle = face;
+    c.fillRect(V.x, SB - 8, V.w, 18);
+    c.fillStyle = 'rgba(255,255,255,0.5)';
+    c.fillRect(V.x, SB - 8, V.w, 2);
     /* LED strip along the lip, hues chasing down the catwalk */
     for (var led = V.x; led < V.x + V.w; led += 12) {
       var hue = ((led - V.x) * 0.9 + t * 2.4) % 360;
@@ -1289,21 +1647,69 @@
       if (fon) { c.save(); c.globalAlpha = 0.35; E.fillEllipse(c, fx, SB + 4, 10, 7, '#fff6c8', false); c.restore(); }
     }
 
-    /* audience in the foreground, bouncing with excitement */
+    /* audience in the foreground, bouncing with excitement. The back
+       rows are lit by the stage; the front row sits in the dark right
+       by the camera, out of focus. */
     var ex = excitement || 0;
     /* the crowd repeats every 864px so it fills the tablet bezel too */
-    for (var rep = Math.floor(V.x / 864) - 1; rep * 864 < V.x + V.w + 60; rep++) {
+    var rep;
+    for (rep = Math.floor(V.x / 864) - 1; rep * 864 < V.x + V.w + 60; rep++) {
       if (rep * 864 + 900 < V.x) continue;
       c.save();
       c.translate(rep * 864, 0);
-      for (var a = 0; a < AUDIENCE.length; a++) drawSpectator(c, AUDIENCE[a], t, ex);
+      for (var a = 0; a < AUDIENCE.length; a++) if (AUDIENCE[a].row < 2) drawSpectator(c, AUDIENCE[a], t, ex);
       c.restore();
     }
-    var fade = c.createLinearGradient(0, RUNWAY.audienceY + 40, 0, V.y + V.h);
+    var fade = c.createLinearGradient(0, RUNWAY.audienceY + 20, 0, V.y + V.h);
     fade.addColorStop(0, 'rgba(26,12,38,0)');
-    fade.addColorStop(1, 'rgba(26,12,38,0.7)');
+    fade.addColorStop(1, 'rgba(26,12,38,0.75)');
     c.fillStyle = fade;
-    c.fillRect(V.x, RUNWAY.audienceY + 40, V.w, V.y + V.h - RUNWAY.audienceY - 40);
+    c.fillRect(V.x, RUNWAY.audienceY + 20, V.w, V.y + V.h - RUNWAY.audienceY - 20);
+    drawFrontRow(c, t, ex);
+  }
+
+  /* The nearest row of heads, painted into a half-resolution band and
+     laid down blurred: a foreground the lens can't hold in focus. */
+  var crowdCv = null, crowdCtx = null;
+  function drawFrontRow(c, t, ex) {
+    var V = view();
+    var top = RUNWAY.audienceY + 30, h = V.y + V.h - top;
+    if (h <= 0) return;
+    if (!HAS_FILTER || !Game.FX.dof) {
+      for (var rep0 = Math.floor(V.x / 864) - 1; rep0 * 864 < V.x + V.w + 60; rep0++) {
+        c.save(); c.translate(rep0 * 864, 0);
+        for (var a0 = 0; a0 < AUDIENCE.length; a0++) if (AUDIENCE[a0].row === 2) drawSpectator(c, AUDIENCE[a0], t, ex);
+        c.restore();
+      }
+      return;
+    }
+    var ds = 2;
+    var bw = Math.ceil(V.w / ds), bh = Math.ceil((h + 40) / ds);
+    if (!crowdCv) { crowdCv = document.createElement('canvas'); crowdCtx = crowdCv.getContext('2d'); }
+    if (crowdCv.width !== bw || crowdCv.height !== bh) { crowdCv.width = bw; crowdCv.height = bh; }
+    var g = crowdCtx;
+    g.setTransform(1 / ds, 0, 0, 1 / ds, 0, 0);
+    g.clearRect(0, 0, V.w, h + 40);
+    g.save();
+    g.translate(-V.x, -(top - 20));
+    for (var rep = Math.floor(V.x / 864) - 1; rep * 864 < V.x + V.w + 60; rep++) {
+      g.save(); g.translate(rep * 864, 0);
+      for (var a = 0; a < AUDIENCE.length; a++) if (AUDIENCE[a].row === 2) drawSpectator(g, AUDIENCE[a], t, ex);
+      g.restore();
+    }
+    g.restore();
+    /* in shadow: only the stage's spill catches the tops of their heads */
+    g.globalCompositeOperation = 'source-atop';
+    var sh = g.createLinearGradient(0, 0, 0, h + 40);
+    sh.addColorStop(0, 'rgba(30, 12, 40, 0.5)');
+    sh.addColorStop(1, 'rgba(20, 8, 30, 0.82)');
+    g.fillStyle = sh;
+    g.fillRect(0, 0, V.w, h + 40);
+    g.globalCompositeOperation = 'source-over';
+    c.save();
+    c.filter = 'blur(3px)';
+    c.drawImage(crowdCv, 0, 0, bw, bh, V.x, top - 20, V.w, h + 40);
+    c.restore();
   }
 
   /* Camera flashes from the crowd: white bursts that fade in a few frames. */
