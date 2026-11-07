@@ -218,7 +218,7 @@
 
   function drawBubble(c, m) {
     /* thought bubble over a friend's head while she works the puzzle */
-    var x = m.x, y = m.y - 118 + Math.sin(t / 20) * 2;
+    var x = m.x, y = m.y - 130 + Math.sin(t / 20) * 2;
     var text = m.problem ? m.problem.text : '';
     var isKanji = m.problem && m.problem.kind === 'kanji';
     c.save();
@@ -243,7 +243,7 @@
 
   function drawReaction(c, m) {
     var ok = m.result && m.result.ok;
-    var x = m.x, y = m.y - 112;
+    var x = m.x, y = m.y - 124;
     var pop = Math.min(1, (120 - m.reaction) / 10);
     c.save();
     c.translate(x, y);

@@ -195,12 +195,15 @@
      Drawn with feet at (0,0) in local space, ~56px tall at scale 1.
      ================================================================== */
 
+  /* Feet at 0; the legs run from torsoBot up to the feet (18 units,
+     lengthened from 12 in v1.6.2 after the feet read as too short). */
   var CH = {
     headR: 13,
-    headY: -41,
-    torsoTop: -30,
-    torsoBot: -12,
+    headY: -47,
+    torsoTop: -36,
+    torsoBot: -18,
     torsoW: 20,
+    legLen: 18,
   };
   var MANNEQUIN_SKIN = '#ede3ec';
 
@@ -270,7 +273,7 @@
     c.clip();
     /* key light from the upper left: a soft sphere of light over the
        chest falling away down the right flank */
-    var vg = c.createRadialGradient(-6, -26, 2, -2, -20, 34);
+    var vg = c.createRadialGradient(-6, -32, 2, -2, -26, 36);
     vg.addColorStop(0, 'rgba(255,255,255,0.3)');
     vg.addColorStop(0.5, 'rgba(255,255,255,0.06)');
     vg.addColorStop(1, 'rgba(42,16,48,0.1)');
@@ -546,8 +549,8 @@
     var bot = CH.torsoBot;
     /* the legs vanish into shadow where they meet the hem */
     var legOpts = { warm: true, topShade: 0.3 };
-    volumeRound(c, -7 + swing * 0.5, bot, 6, 12, 3, skin, 2, legOpts);
-    volumeRound(c, 1 - swing * 0.5, bot, 6, 12, 3, skin, 2, legOpts);
+    volumeRound(c, -7 + swing * 0.5, bot, 6, CH.legLen, 3, skin, 2, legOpts);
+    volumeRound(c, 1 - swing * 0.5, bot, 6, CH.legLen, 3, skin, 2, legOpts);
   }
 
   function drawPantsLegs(c, cust, swing) {
@@ -555,27 +558,29 @@
     var bot = CH.torsoBot;
     var lx = -7 + swing * 0.5, rx = 1 - swing * 0.5;
     var pOpts = { topShade: 0.22 };
+    var L = CH.legLen + 2;      /* trouser legs start 2 above the hip */
     switch (cust.pants) {
       case 'jeans':
-        volumeRound(c, lx - 0.5, bot - 2, 7, 12, 2.5, col, 2, pOpts);
-        volumeRound(c, rx - 0.5, bot - 2, 7, 12, 2.5, col, 2, pOpts);
+        volumeRound(c, lx - 0.5, bot - 2, 7, L, 2.5, col, 2, pOpts);
+        volumeRound(c, rx - 0.5, bot - 2, 7, L, 2.5, col, 2, pOpts);
         c.strokeStyle = light; c.lineWidth = 1;
-        c.beginPath(); c.moveTo(lx + 1, bot + 7); c.lineTo(lx + 1, bot + 9.5); c.moveTo(rx + 5, bot + 7); c.lineTo(rx + 5, bot + 9.5); c.stroke();
+        /* a pale seam down the outside of each leg to the turn-up */
+        c.beginPath(); c.moveTo(lx + 1, bot + 3); c.lineTo(lx + 1, -2.5); c.moveTo(rx + 5, bot + 3); c.lineTo(rx + 5, -2.5); c.stroke();
         break;
       case 'leggings':
-        volumeRound(c, lx, bot - 2, 6, 12, 3, col, 2, pOpts);
-        volumeRound(c, rx, bot - 2, 6, 12, 3, col, 2, pOpts);
+        volumeRound(c, lx, bot - 2, 6, L, 3, col, 2, pOpts);
+        volumeRound(c, rx, bot - 2, 6, L, 3, col, 2, pOpts);
         break;
       case 'stripey':
         for (var s = 0; s < 2; s++) {
           var x = s === 0 ? lx : rx;
           c.save();
-          roundRect(c, x, bot - 2, 6, 12, 3); c.clip();
-          c.fillStyle = col; c.fillRect(x, bot - 2, 6, 12);
+          roundRect(c, x, bot - 2, 6, L, 3); c.clip();
+          c.fillStyle = col; c.fillRect(x, bot - 2, 6, L);
           c.fillStyle = PAL.cream;
-          for (var y = bot; y < bot + 10; y += 4) c.fillRect(x, y, 6, 2);
+          for (var y = bot; y < -2; y += 4) c.fillRect(x, y, 6, 2);
           c.restore();
-          roundRect(c, x, bot - 2, 6, 12, 3); ink(c, 2);
+          roundRect(c, x, bot - 2, 6, L, 3); ink(c, 2);
         }
         break;
       case 'shorts':
@@ -584,8 +589,8 @@
         fillRound(c, -8, bot - 4, 16, 3, 1.5, dark, false);
         break;
       case 'overalls':
-        volumeRound(c, lx - 0.5, bot - 2, 7, 12, 2.5, col, 2, pOpts);
-        volumeRound(c, rx - 0.5, bot - 2, 7, 12, 2.5, col, 2, pOpts);
+        volumeRound(c, lx - 0.5, bot - 2, 7, L, 2.5, col, 2, pOpts);
+        volumeRound(c, rx - 0.5, bot - 2, 7, L, 2.5, col, 2, pOpts);
         break;
       /* skirts are drawn by drawSkirt(), over the camisole */
     }
@@ -1555,7 +1560,7 @@
     c.fillStyle = PAL.sky;
     c.fillRect(cx - size, cy - size, size * 2, size * 2);
     var sc = size / 46;
-    drawCharacter(c, cx, cy + size * 0.72, cust, 0, 1, sc, false, 0, { noShadow: true });
+    drawCharacter(c, cx, cy - size * 0.17 - CH.headY * sc, cust, 0, 1, sc, false, 0, { noShadow: true });
     c.restore();
     c.beginPath();
     c.arc(cx, cy, size / 2, 0, Math.PI * 2);
@@ -1592,8 +1597,8 @@
       sc = size / 30;
       fy = cy + size * 0.34;
     } else {
-      sc = size / 66;
-      fy = cy + size * 0.44;
+      sc = size / 74;
+      fy = cy + size * 0.46;
     }
     drawCharacter(c, cx, fy, cust, 0, 1, sc, false, 0, { noShadow: true, t: opts.t });
     c.restore();
