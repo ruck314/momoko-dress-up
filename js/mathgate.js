@@ -215,7 +215,12 @@
     cha: 'ちゃ', chu: 'ちゅ', cho: 'ちょ', tya: 'ちゃ', tyu: 'ちゅ', tyo: 'ちょ',
     nya: 'にゃ', nyu: 'にゅ', nyo: 'にょ', hya: 'ひゃ', hyu: 'ひゅ', hyo: 'ひょ', bya: 'びゃ', byu: 'びゅ', byo: 'びょ',
     pya: 'ぴゃ', pyu: 'ぴゅ', pyo: 'ぴょ', mya: 'みゃ', myu: 'みゅ', myo: 'みょ', rya: 'りゃ', ryu: 'りゅ', ryo: 'りょ',
-    xa: 'ぁ', xi: 'ぃ', xu: 'ぅ', xe: 'ぇ', xo: 'ぉ', xya: 'ゃ', xyu: 'ゅ', xyo: 'ょ', xtu: 'っ', xtsu: 'っ', ltu: 'っ',
+    cya: 'ちゃ', cyu: 'ちゅ', cyo: 'ちょ', chya: 'ちゃ', chyu: 'ちゅ', chyo: 'ちょ',
+    jya: 'じゃ', jyu: 'じゅ', jyo: 'じょ', zya: 'じゃ', zyu: 'じゅ', zyo: 'じょ',
+    dya: 'ぢゃ', dyu: 'ぢゅ', dyo: 'ぢょ', she: 'しぇ', che: 'ちぇ', je: 'じぇ',
+    fa: 'ふぁ', fi: 'ふぃ', fe: 'ふぇ', fo: 'ふぉ', wi: 'うぃ', we: 'うぇ', vu: 'ゔ',
+    xa: 'ぁ', xi: 'ぃ', xu: 'ぅ', xe: 'ぇ', xo: 'ぉ', xya: 'ゃ', xyu: 'ゅ', xyo: 'ょ', xtu: 'っ', xtsu: 'っ', xwa: 'ゎ',
+    la: 'ぁ', li: 'ぃ', lu: 'ぅ', le: 'ぇ', lo: 'ぉ', lya: 'ゃ', lyu: 'ゅ', lyo: 'ょ', ltu: 'っ', ltsu: 'っ', lwa: 'ゎ',
     '-': 'ー',
   };
   var roman = '';
@@ -235,8 +240,8 @@
       return;
     }
     st.buf += ch;
-    /* doubled consonant = っ (kk -> っk), but not n */
-    if (st.buf.length >= 2 && st.buf[0] === st.buf[1] && isConsonant(st.buf[0]) && st.buf[0] !== 'n') {
+    /* doubled consonant = っ (kk -> っk), but not n; tch is っch */
+    if (st.buf.length >= 2 && ((st.buf[0] === st.buf[1] && isConsonant(st.buf[0]) && st.buf[0] !== 'n') || st.buf.indexOf('tc') === 0)) {
       st.out += 'っ';
       st.buf = st.buf.slice(1);
     }
@@ -424,9 +429,18 @@
   /* The helper keys beside the field: they edit the field's own value
      (resolving any half-typed romaji first) and hand focus straight
      back so the device keyboard stays up. */
+  /* If the device IME still holds uncommitted (marked) text, a blur
+     makes it commit, so the value we read and rewrite is the whole
+     answer and the IME cannot re-insert its composition afterwards. */
+  function settleComposition(f) {
+    if (!composing) return;
+    try { f.blur(); } catch (err) { /* ignore */ }
+    composing = false;
+  }
   function fieldEdit(op) {
     if (gate.phase !== 'ask') return;
     var f = ensureField();
+    settleComposition(f);
     var v = toHiragana(f.value, true);
     if (op === 'back') v = v.slice(0, -1);
     else if (op === 'n') v += 'ん';
@@ -440,6 +454,7 @@
   }
   function commitField() {
     if (!field || !fieldShown) return;
+    settleComposition(field);
     gate.input = toHiragana(field.value, true);
     field.value = gate.input;
   }
