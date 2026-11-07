@@ -218,7 +218,7 @@
 
   function drawBubble(c, m) {
     /* thought bubble over a friend's head while she works the puzzle */
-    var x = m.x, y = m.y - 95 + Math.sin(t / 20) * 2;
+    var x = m.x, y = m.y - 118 + Math.sin(t / 20) * 2;
     var text = m.problem ? m.problem.text : '';
     var isKanji = m.problem && m.problem.kind === 'kanji';
     c.save();
@@ -243,7 +243,7 @@
 
   function drawReaction(c, m) {
     var ok = m.result && m.result.ok;
-    var x = m.x, y = m.y - 92;
+    var x = m.x, y = m.y - 112;
     var pop = Math.min(1, (120 - m.reaction) / 10);
     c.save();
     c.translate(x, y);
@@ -287,6 +287,7 @@
     }
   }
 
+  var MODEL_SCALE = 1.75;
   function drawModel(c, m, i) {
     var drooping = show.phase === 'react' && m.result && !m.result.ok;
     var hop = (show.phase === 'react' && m.result && m.result.ok) ? Math.max(0, Math.sin(t / 6)) * 10 : 0;
@@ -296,8 +297,8 @@
       c.rotate(0.08 * m.facing);
       c.translate(-m.x, -m.y);
     }
-    E.drawReflection(c, m.x, m.y, m.look, m.frame, m.facing, 1.45, 0.22, RW().stageBottom - m.y - 9, 'rgba(184,62,128,1)', { pose: m.pose });
-    E.drawCharacter(c, m.x, m.y, m.look, m.frame, m.facing, 1.45, m.blink, hop, { pose: m.pose, t: t });
+    E.drawReflection(c, m.x, m.y, m.look, m.frame, m.facing, MODEL_SCALE, 0.24, RW().stageBottom - m.y - 9, 'rgba(184,62,128,1)', { pose: m.pose });
+    E.drawCharacter(c, m.x, m.y, m.look, m.frame, m.facing, MODEL_SCALE, m.blink, hop, { pose: m.pose, t: t });
     c.restore();
   }
 

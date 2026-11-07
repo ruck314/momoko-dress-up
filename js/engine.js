@@ -13,7 +13,7 @@
   var GAME_X = 0, GAME_Y = 0;
 
   /* Bump alongside CACHE_NAME in sw.js and tag the matching git release. */
-  Game.VERSION = 'v1.5.0';
+  Game.VERSION = 'v1.6.0';
 
   /* Post-processing switches, all on by default. A slow device (or a
      test) can turn any of them off without touching the scene code. */
@@ -342,9 +342,9 @@
       case State.RUNWAY: Game.runway.draw(ctx); break;
     }
     if (state !== State.PAUSED) {
-      if (Game.FX.bloom) drawBloom(ctx, dpr, state === State.RUNWAY ? 0.3 : 0.2);
+      if (Game.FX.bloom) drawBloom(ctx, dpr, state === State.RUNWAY ? 0.3 : 0.16);
       if (Game.FX.grade) drawGrade(ctx, state === State.RUNWAY);
-      if (Game.FX.vignette) drawVignette(ctx, state === State.PLAYING || state === State.RUNWAY ? 0.42 : 0.3);
+      if (Game.FX.vignette) drawVignette(ctx, state === State.PLAYING || state === State.RUNWAY ? 0.5 : 0.34);
     }
     if (Game.gate.isOpen()) Game.gate.draw(ctx);
     if (sceneFade > 0) {
@@ -374,7 +374,7 @@
     bloomCtx.clearRect(0, 0, bw, bh);
     /* knock the mid-tones down on the way in so only the lights, the
        whites and the sparkles bleed; the shadows stay shadows */
-    bloomCtx.filter = 'brightness(0.84) contrast(1.7) saturate(1.2)';
+    bloomCtx.filter = 'brightness(0.8) contrast(2) saturate(1.2)';
     bloomCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, bw, bh);
     bloomCtx.filter = 'none';
     c.save();
@@ -401,12 +401,21 @@
       g.addColorStop(0.5, 'rgba(170, 80, 190, 0.3)');
       g.addColorStop(1, 'rgba(20, 6, 40, 0.85)');
     } else {
-      g.addColorStop(0, 'rgba(120, 70, 130, 0.4)');
-      g.addColorStop(0.22, 'rgba(255, 214, 160, 0.45)');
-      g.addColorStop(0.55, 'rgba(255, 230, 235, 0.3)');
-      g.addColorStop(1, 'rgba(70, 30, 110, 0.7)');
+      /* the cove sinks into plum, the lit band of the room stays warm,
+         and the floor at the camera's feet falls off into shadow */
+      g.addColorStop(0, 'rgba(60, 20, 90, 0.75)');
+      g.addColorStop(0.2, 'rgba(255, 214, 160, 0.22)');
+      g.addColorStop(0.5, 'rgba(255, 220, 225, 0.1)');
+      g.addColorStop(0.78, 'rgba(90, 30, 120, 0.5)');
+      g.addColorStop(1, 'rgba(30, 8, 60, 0.9)');
     }
     c.fillStyle = g;
+    c.fillRect(V.x, V.y, V.w, V.h);
+    /* and a nudge of saturation: the blend keeps the frame's hue and
+       light and borrows only the richness of a pure magenta */
+    c.globalCompositeOperation = 'saturation';
+    c.globalAlpha = stage ? 0.1 : 0.22;
+    c.fillStyle = '#ff00a0';
     c.fillRect(V.x, V.y, V.w, V.h);
     c.restore();
   }
@@ -416,9 +425,10 @@
   function drawVignette(c, strength) {
     var V = Game.ui.VIEW;
     var cx = V.x + V.w / 2, cy = V.y + V.h / 2;
-    var r = Math.max(V.w, V.h) * 0.74;
-    var g = c.createRadialGradient(cx, cy, r * 0.5, cx, cy, r);
+    var r = Math.max(V.w, V.h) * 0.76;
+    var g = c.createRadialGradient(cx, cy, r * 0.42, cx, cy, r);
     g.addColorStop(0, 'rgba(43, 21, 48, 0)');
+    g.addColorStop(0.6, 'rgba(43, 21, 48, ' + (strength * 0.45) + ')');
     g.addColorStop(1, 'rgba(43, 21, 48, ' + strength + ')');
     c.fillStyle = g;
     c.fillRect(V.x, V.y, V.w, V.h);
@@ -472,7 +482,7 @@
     Game.studio.drawReflectionBand(c, S.groundY, camX, function (g) {
       drawWorldObjects(g, camX, target);
       E.drawCharacter(g, player.x, player.y, Game.look, player.frame, player.facing, PLAYER_SCALE, false, 0, { noShadow: true, t: t });
-    }, 0.34);
+    }, 0.44);
 
     c.save();
     c.translate(-camX, 0);

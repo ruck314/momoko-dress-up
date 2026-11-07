@@ -82,11 +82,11 @@
        eye level: light comes from the fixtures and the windows, not from
        everywhere at once */
     var g = c.createLinearGradient(0, V.y, 0, groundY);
-    g.addColorStop(0, '#a9759f');
-    g.addColorStop(0.16, '#c99bbd');
-    g.addColorStop(0.42, '#e6c6da');
-    g.addColorStop(0.72, '#f1d6e4');
-    g.addColorStop(1, '#e3c0d4');
+    g.addColorStop(0, '#7a4477');
+    g.addColorStop(0.16, '#a9749f');
+    g.addColorStop(0.42, '#cf9fbf');
+    g.addColorStop(0.72, '#e2bcd0');
+    g.addColorStop(1, '#d1a4bd');
     c.fillStyle = g;
     c.fillRect(V.x, V.y, V.w, groundY - V.y);
     /* wallpaper pattern, parallax at 0.5 */
@@ -105,10 +105,10 @@
     c.fillStyle = cm;
     c.fillRect(V.x, V.y, V.w, 16);
     var cs = c.createLinearGradient(0, V.y + 16, 0, V.y + 40);
-    cs.addColorStop(0, 'rgba(74,42,64,0.26)');
-    cs.addColorStop(1, 'rgba(74,42,64,0)');
+    cs.addColorStop(0, 'rgba(40,16,48,0.42)');
+    cs.addColorStop(1, 'rgba(40,16,48,0)');
     c.fillStyle = cs;
-    c.fillRect(V.x, V.y + 16, V.w, 24);
+    c.fillRect(V.x, V.y + 16, V.w, 30);
     /* picture rail, with the shadow it throws down the wall */
     var pr = c.createLinearGradient(0, groundY - 240, 0, groundY - 232);
     pr.addColorStop(0, '#ffffff'); pr.addColorStop(1, '#ead2de');
@@ -122,8 +122,8 @@
     /* wainscot: cream panelling along the lower wall */
     var wg = c.createLinearGradient(0, groundY - 110, 0, groundY);
     wg.addColorStop(0, '#fff8f3');
-    wg.addColorStop(0.7, '#f7e3eb');
-    wg.addColorStop(1, '#e9cbd8');
+    wg.addColorStop(0.7, '#f3dde6');
+    wg.addColorStop(1, '#dfbccd');
     c.fillStyle = wg;
     c.fillRect(V.x, groundY - 110, V.w, 102);
     var cap = c.createLinearGradient(0, groundY - 116, 0, groundY - 108);
@@ -154,7 +154,7 @@
     }
     /* skirting */
     var sk = c.createLinearGradient(0, groundY - 10, 0, groundY);
-    sk.addColorStop(0, '#fff0f6'); sk.addColorStop(0.35, PAL.floorDark); sk.addColorStop(1, '#b97a97');
+    sk.addColorStop(0, '#fff0f6'); sk.addColorStop(0.35, PAL.floorDark); sk.addColorStop(1, '#8e5676');
     c.fillStyle = sk;
     c.fillRect(V.x, groundY - 10, V.w, 10);
   }
@@ -376,9 +376,9 @@
     var bottom = V.y + V.h;
     var vpX = V.x + V.w / 2;
     var g = c.createLinearGradient(0, groundY, 0, bottom);
-    g.addColorStop(0, '#e2b6cc');
-    g.addColorStop(0.5, '#cf9cb8');
-    g.addColorStop(1, '#b57ea0');
+    g.addColorStop(0, '#d9a8c2');
+    g.addColorStop(0.5, '#b4799f');
+    g.addColorStop(1, '#8a5278');
     c.fillStyle = g;
     c.fillRect(V.x, groundY, V.w, bottom - groundY);
 
@@ -397,9 +397,9 @@
         if (Math.max(xA1, xB1) < V.x || Math.min(xA0, xB0) > V.x + V.w) continue;
         c.beginPath();
         c.moveTo(xA0, yA); c.lineTo(xA1, yA); c.lineTo(xB1, yB); c.lineTo(xB0, yB); c.closePath();
-        c.fillStyle = ((j + k) & 1) ? 'rgba(255,255,255,0.14)' : 'rgba(90,30,80,0.09)';
+        c.fillStyle = ((j + k) & 1) ? 'rgba(255,255,255,0.15)' : 'rgba(60,16,70,0.16)';
         c.fill();
-        c.strokeStyle = 'rgba(255,255,255,0.28)';
+        c.strokeStyle = 'rgba(255,255,255,0.24)';
         c.lineWidth = 1;
         c.stroke();
       }
@@ -653,8 +653,8 @@
     for (var wx = start; wx < camX * 0.85 + V.x + V.w + span; wx += span) {
       var x = wx - camX * 0.85 + off, y = groundY - 226;
       var g = c.createLinearGradient(x, y, x - 90, groundY + 40);
-      g.addColorStop(0, 'rgba(255, 246, 214, 0.34)');
-      g.addColorStop(0.6, 'rgba(255, 246, 214, 0.1)');
+      g.addColorStop(0, 'rgba(255, 246, 214, 0.42)');
+      g.addColorStop(0.6, 'rgba(255, 246, 214, 0.12)');
       g.addColorStop(1, 'rgba(255, 246, 214, 0)');
       c.fillStyle = g;
       c.beginPath();
@@ -668,12 +668,12 @@
   /* Ambient occlusion where the wall meets the floor. */
   function drawFloorShadow(c, groundY) {
     var V = view();
-    var g = c.createLinearGradient(0, groundY - 2, 0, groundY + 30);
-    g.addColorStop(0, 'rgba(74, 42, 64, 0.3)');
-    g.addColorStop(0.4, 'rgba(74, 42, 64, 0.1)');
-    g.addColorStop(1, 'rgba(74, 42, 64, 0)');
+    var g = c.createLinearGradient(0, groundY - 2, 0, groundY + 40);
+    g.addColorStop(0, 'rgba(50, 20, 60, 0.42)');
+    g.addColorStop(0.35, 'rgba(50, 20, 60, 0.14)');
+    g.addColorStop(1, 'rgba(50, 20, 60, 0)');
     c.fillStyle = g;
-    c.fillRect(V.x, groundY - 2, V.w, 32);
+    c.fillRect(V.x, groundY - 2, V.w, 42);
   }
 
   /* ================================================================
@@ -771,20 +771,24 @@
   function drawStation(c, st, groundY, t, near) {
     var x = st.x;
     var bob = Math.sin(t / 18 + st.x) * 2;
-    E.softShadow(c, x, groundY + 2, 110, 10, 0.22);
+    E.softShadow(c, x, groundY + 3, 118, 12, 0.36);
 
     /* the booth throws a soft shadow down and right onto the wall */
     c.save();
-    c.fillStyle = 'rgba(74, 42, 64, 0.1)';
-    E.roundRect(c, x - 78 + 22, groundY - 212 + 26, 170, 170, 16); c.fill();
-    c.fillStyle = 'rgba(74, 42, 64, 0.12)';
+    c.fillStyle = 'rgba(50, 20, 60, 0.12)';
+    E.roundRect(c, x - 78 + 24, groundY - 212 + 28, 170, 170, 16); c.fill();
+    c.fillStyle = 'rgba(50, 20, 60, 0.16)';
     E.roundRect(c, x - 78 + 12, groundY - 212 + 14, 164, 166, 14); c.fill();
-    c.fillStyle = 'rgba(74, 42, 64, 0.1)';
-    E.roundRect(c, x - 92 + 10, groundY - 217 + 8, 184, 20, 6); c.fill();
+    c.fillStyle = 'rgba(50, 20, 60, 0.14)';
+    E.roundRect(c, x - 92 + 10, groundY - 217 + 8, 184, 22, 6); c.fill();
     c.restore();
 
-    /* back board with a lit side */
-    E.fillRound(c, x - 78, groundY - 196, 156, 152, 10, '#ffffff');
+    /* back board with a lit side; the frame is lacquered cream, brighter
+       along its top edge where the awning lights catch it */
+    var frameG = c.createLinearGradient(0, groundY - 196, 0, groundY - 44);
+    frameG.addColorStop(0, '#fffaf4'); frameG.addColorStop(0.5, '#f6e6e4'); frameG.addColorStop(1, '#e9d2d6');
+    E.fillRound(c, x - 78, groundY - 196, 156, 152, 10, frameG, false);
+    c.fillStyle = '#f6e6e4'; E.roundRect(c, x - 78, groundY - 196, 156, 152, 10); E.ink(c, 2);
     c.save();
     E.roundRect(c, x - 74, groundY - 192, 148, 144, 8);
     c.clip();

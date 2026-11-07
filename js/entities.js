@@ -204,56 +204,147 @@
   };
   var MANNEQUIN_SKIN = '#ede3ec';
 
-  /* Fill a shape, then tuck a shadow down its right side and a highlight
-     up its left, then ink the outline. pathFn traces the shape. */
-  function shadedFill(c, pathFn, col, inkW) {
+  /* Mix two hex colours; k = 0 gives a, k = 1 gives b. */
+  function mix(a, b, k) {
+    if (!a || a.charAt(0) !== '#' || !b || b.charAt(0) !== '#') return a;
+    var na = parseInt(a.slice(1), 16), nb = parseInt(b.slice(1), 16);
+    var r = Math.round(((na >> 16) & 255) * (1 - k) + ((nb >> 16) & 255) * k);
+    var g = Math.round(((na >> 8) & 255) * (1 - k) + ((nb >> 8) & 255) * k);
+    var bl = Math.round((na & 255) * (1 - k) + (nb & 255) * k);
+    return '#' + ((1 << 24) + (r << 16) + (g << 8) + bl).toString(16).slice(1);
+  }
+  /* The colour a surface turns where it falls out of the key light.
+     Cloth shadows cool toward the room's plum; skin shadows warm toward
+     blood and sun, the way a painter keeps a face alive in shade. */
+  function shadowOf(col, amt, warm) {
+    if (!col || col.charAt(0) !== '#') return col;
+    return mix(shade(col, -amt), warm ? '#c8503a' : '#4a2470', warm ? amt / 220 : amt / 180);
+  }
+  var SHADE_CACHE = {};
+  function shadowCached(col, amt, warm) {
+    var k = col + amt + (warm ? 'w' : 'c');
+    return SHADE_CACHE[k] || (SHADE_CACHE[k] = shadowOf(col, amt, warm));
+  }
+
+  /* Two hard-edged shadow bands tucked along the shape's dark side: the
+     shape is filled in its deep shadow colour, then its own outline,
+     nudged toward the light, clips back the mid band, then nudged again,
+     clips back the lit body. The result is the stepped terminator of a
+     cel-shaded figure, and it is what finally makes a flat fill read as
+     a solid thing standing in a lit room. `col` must be a hex colour;
+     gradients fall through to the soft shading alone. */
+  function celBands(c, pathFn, col, dx, dy, warm, strength) {
+    if (typeof col !== 'string' || col.charAt(0) !== '#') return;
+    var s = strength || 1;
+    c.save();
+    pathFn();
+    c.clip();
+    c.fillStyle = shadowCached(col, Math.round(24 * s), warm);
+    c.fillRect(-120, -140, 240, 280);
+    c.translate(dx, dy);
+    pathFn();
+    c.translate(-dx, -dy);
+    c.clip();
+    c.fillStyle = shadowCached(col, Math.round(11 * s), warm);
+    c.fillRect(-120, -140, 240, 280);
+    c.translate(dx * 0.45, dy * 0.45);
+    pathFn();
+    c.translate(-dx * 0.45, -dy * 0.45);
+    c.clip();
+    c.fillStyle = col;
+    c.fillRect(-120, -140, 240, 280);
+    c.restore();
+  }
+
+  /* Fill a shape, band its shadow side, lay soft studio light over it,
+     then ink the outline. pathFn traces the shape. opts.warm picks skin
+     shadows; opts.dx/dy set where the light is coming from. */
+  function shadedFill(c, pathFn, col, inkW, opts) {
+    opts = opts || {};
     pathFn();
     c.fillStyle = col;
     c.fill();
+    celBands(c, pathFn, col, opts.dx === undefined ? -2.6 : opts.dx, opts.dy === undefined ? -3.2 : opts.dy, opts.warm, opts.strength);
     c.save();
     pathFn();
     c.clip();
     /* key light from the upper left: a soft sphere of light over the
-       chest falling to a cool shadow down the right flank and hem */
+       chest falling away down the right flank */
     var vg = c.createRadialGradient(-6, -26, 2, -2, -20, 34);
-    vg.addColorStop(0, 'rgba(255,255,255,0.32)');
-    vg.addColorStop(0.45, 'rgba(255,255,255,0.08)');
-    vg.addColorStop(0.75, 'rgba(42,16,48,0.06)');
-    vg.addColorStop(1, 'rgba(42,16,48,0.3)');
+    vg.addColorStop(0, 'rgba(255,255,255,0.3)');
+    vg.addColorStop(0.5, 'rgba(255,255,255,0.06)');
+    vg.addColorStop(1, 'rgba(42,16,48,0.1)');
     c.fillStyle = vg;
     c.fillRect(-80, -100, 160, 160);
     /* rim light along the lit edge */
-    var rg = c.createLinearGradient(-16, 0, -6, 0);
-    rg.addColorStop(0, 'rgba(255,255,255,0.28)');
+    var rg = c.createLinearGradient(-16, 0, -7, 0);
+    rg.addColorStop(0, 'rgba(255,255,255,0.3)');
     rg.addColorStop(1, 'rgba(255,255,255,0)');
     c.fillStyle = rg;
-    c.fillRect(-80, -100, 74, 160);
+    c.fillRect(-80, -100, 73, 160);
+    /* a sliver of cool rim light down the shadow edge, so the dark side
+       still separates from the room */
+    var rr = c.createLinearGradient(14, 0, 8, 0);
+    rr.addColorStop(0, 'rgba(210,230,255,0.22)');
+    rr.addColorStop(1, 'rgba(210,230,255,0)');
+    c.fillStyle = rr;
+    c.fillRect(8, -100, 80, 160);
     /* bounce light creeping up from the floor */
-    var bg = c.createLinearGradient(0, 12, 0, -6);
-    bg.addColorStop(0, 'rgba(255,214,236,0.22)');
+    var bg = c.createLinearGradient(0, 12, 0, -4);
+    bg.addColorStop(0, 'rgba(255,214,236,0.16)');
     bg.addColorStop(1, 'rgba(255,214,236,0)');
     c.fillStyle = bg;
-    c.fillRect(-80, -8, 160, 24);
+    c.fillRect(-80, -6, 160, 22);
     c.restore();
     pathFn();
     ink(c, inkW || 2);
   }
-  /* A limb or sleeve: a rounded bar lit down its left side. */
-  function volumeRound(c, x, y, w, h, r, col, inkW) {
-    roundRect(c, x, y, w, h, r);
+  /* A limb or sleeve: a rounded bar lit down its left side with a hard
+     shadow band down its right. opts.warm for skin; opts.topShade darkens
+     the top end where it disappears under a hem or a shoulder. */
+  function volumeRound(c, x, y, w, h, r, col, inkW, opts) {
+    opts = opts || {};
+    var path = function () { roundRect(c, x, y, w, h, r); };
+    path();
     c.fillStyle = col;
     c.fill();
+    celBands(c, path, col, -w * 0.34, -h * 0.08, opts.warm, 0.9);
     c.save();
-    roundRect(c, x, y, w, h, r);
+    path();
     c.clip();
     var g = c.createLinearGradient(x, 0, x + w, 0);
     g.addColorStop(0, 'rgba(255,255,255,0.3)');
-    g.addColorStop(0.4, 'rgba(255,255,255,0.04)');
-    g.addColorStop(1, 'rgba(42,16,48,0.26)');
+    g.addColorStop(0.45, 'rgba(255,255,255,0.03)');
+    g.addColorStop(1, 'rgba(42,16,48,0.1)');
     c.fillStyle = g;
     c.fillRect(x, y, w, h);
+    if (opts.topShade) {
+      var tg = c.createLinearGradient(0, y, 0, y + Math.min(h, 7));
+      tg.addColorStop(0, 'rgba(42,16,48,' + opts.topShade + ')');
+      tg.addColorStop(1, 'rgba(42,16,48,0)');
+      c.fillStyle = tg;
+      c.fillRect(x, y, w, Math.min(h, 7));
+    }
     c.restore();
-    roundRect(c, x, y, w, h, r);
+    path();
+    c.fillStyle = col;
+    ink(c, inkW || 2);
+  }
+  /* A lock of hair, a bun, a pompom: an ellipse with its shadow side
+     banded and a glint on its lit shoulder. */
+  function volEllipse(c, cx, cy, rx, ry, col, inkW) {
+    var path = function () { c.beginPath(); c.ellipse(cx, cy, Math.abs(rx), Math.abs(ry), 0, 0, Math.PI * 2); };
+    path();
+    c.fillStyle = col;
+    c.fill();
+    celBands(c, path, col, -Math.abs(rx) * 0.36, -Math.abs(ry) * 0.3, false, 1);
+    c.save();
+    path();
+    c.clip();
+    c.globalAlpha = 0.32;
+    fillEllipse(c, cx - rx * 0.35, cy - ry * 0.4, Math.abs(rx) * 0.32, Math.abs(ry) * 0.22, '#ffffff', false);
+    c.restore();
+    path();
     c.fillStyle = col;
     ink(c, inkW || 2);
   }
@@ -281,12 +372,12 @@
       col = shade(col, -9);
       switch (cust.hairStyle) {
         case 'twinTails':
-          fillEllipse(c, -r - 6, hy + 6, 7, 12, col);
-          fillEllipse(c, r + 6, hy + 6, 7, 12, col);
+          volEllipse(c, -r - 6, hy + 6, 7, 12, col);
+          volEllipse(c, r + 6, hy + 6, 7, 12, col);
           break;
         case 'longBraids':
-          fillRound(c, -r - 6, hy - 2, 8, 26, 4, col);
-          fillRound(c, r - 2, hy - 2, 8, 26, 4, col);
+          volumeRound(c, -r - 6, hy - 2, 8, 26, 4, col);
+          volumeRound(c, r - 2, hy - 2, 8, 26, 4, col);
           for (i = 0; i < 3; i++) {
             fillEllipse(c, -r - 2, hy + 4 + i * 7, 3.6, 3, shade(col, 8), false);
             fillEllipse(c, r + 2, hy + 4 + i * 7, 3.6, 3, shade(col, 8), false);
@@ -295,20 +386,20 @@
           fillEllipse(c, r + 2, hy + 25, 4, 4, dark);
           break;
         case 'buns':
-          fillEllipse(c, -r - 4, hy - 6, 7, 7, col);
-          fillEllipse(c, r + 4, hy - 6, 7, 7, col);
+          volEllipse(c, -r - 4, hy - 6, 7, 7, col);
+          volEllipse(c, r + 4, hy - 6, 7, 7, col);
           fillEllipse(c, -r - 6, hy - 8, 2.5, 2, shade(col, 35), false);
           fillEllipse(c, r + 2, hy - 8, 2.5, 2, shade(col, 35), false);
           break;
         case 'ponytail':
-          fillPath(c, [[r - 2, hy - 4], [r + 12, hy + 4], [r + 9, hy + 20], [r + 1, hy + 8]], col);
+          shadedFill(c, polyPath(c, [[r - 2, hy - 4], [r + 12, hy + 4], [r + 9, hy + 20], [r + 1, hy + 8]]), col, 2, { dx: -2, dy: -2 });
           break;
         case 'sidePony':
-          fillEllipse(c, r + 7, hy + 12, 6, 13, col);
+          volEllipse(c, r + 7, hy + 12, 6, 13, col);
           fillEllipse(c, r + 3, hy, 4, 4, PAL.sun, false);
           break;
         case 'bob':
-          fillEllipse(c, 0, hy + 3, r + 3, r + 2, col);
+          volEllipse(c, 0, hy + 3, r + 3, r + 2, col);
           break;
         case 'longWavy':
           /* two long locks falling past the shoulders, wavy on the
@@ -323,7 +414,22 @@
             c.lineTo(sd * (r - 5), hy + 44);
             c.quadraticCurveTo(sd * (r - 3), hy + 24, sd * (r - 1), hy + 6);
             c.closePath();
-            c.fillStyle = col; c.fill(); ink(c, 2);
+            c.fillStyle = col; c.fill();
+            (function (side) {
+              var lock = function () {
+                c.beginPath();
+                c.moveTo(side * (r - 4), hy - 8);
+                c.quadraticCurveTo(side * (r + 9), hy + 2, side * (r + 6), hy + 12);
+                c.quadraticCurveTo(side * (r + 12), hy + 22, side * (r + 7), hy + 32);
+                c.quadraticCurveTo(side * (r + 10), hy + 40, side * (r + 4), hy + 44);
+                c.lineTo(side * (r - 5), hy + 44);
+                c.quadraticCurveTo(side * (r - 3), hy + 24, side * (r - 1), hy + 6);
+                c.closePath();
+              };
+              celBands(c, lock, col, -2.4, -2.6, false, 1);
+              lock();
+              c.fillStyle = col; ink(c, 2);
+            })(sd);
             /* a lighter strand following the wave */
             c.save(); c.globalAlpha = 0.35;
             c.strokeStyle = shade(col, 40); c.lineWidth = 2;
@@ -337,46 +443,74 @@
         case 'curly':
           for (i = 0; i < 9; i++) {
             var a = Math.PI + (i / 8) * Math.PI;
-            fillEllipse(c, Math.cos(a) * (r + 4), hy + Math.sin(a) * (r + 2) + 2, 6, 6, col);
+            volEllipse(c, Math.cos(a) * (r + 4), hy + Math.sin(a) * (r + 2) + 2, 6, 6, col);
           }
-          fillEllipse(c, -r - 6, hy + 10, 6, 6, col);
-          fillEllipse(c, r + 6, hy + 10, 6, 6, col);
+          volEllipse(c, -r - 6, hy + 10, 6, 6, col);
+          volEllipse(c, r + 6, hy + 10, 6, 6, col);
           break;
         case 'pixie':
-          fillEllipse(c, 0, hy - 1, r + 2.5, r + 1, col);
+          volEllipse(c, 0, hy - 1, r + 2.5, r + 1, col);
           break;
         case 'topBun':
-          fillEllipse(c, 0, hy - r - 5, 7.5, 6.5, col);
+          volEllipse(c, 0, hy - r - 5, 7.5, 6.5, col);
           fillEllipse(c, -2, hy - r - 7, 2.5, 2, shade(col, 35), false);
           break;
       }
     } else {
-      c.save();
-      c.beginPath();
-      c.arc(0, hy, r + 1.5, Math.PI, Math.PI * 2);
-      c.closePath();
+      /* the fringe throws a shadow onto the brow beneath it */
+      if (!cust.mannequin) {
+        c.save();
+        c.beginPath(); c.ellipse(0, hy, r, r + 0.5, 0, 0, Math.PI * 2); c.clip();
+        var fs = c.createLinearGradient(0, hy - 0.5, 0, hy + 4);
+        fs.addColorStop(0, 'rgba(120,40,50,0.3)');
+        fs.addColorStop(1, 'rgba(120,40,50,0)');
+        c.fillStyle = fs;
+        c.fillRect(-r - 2, hy - 1, r * 2 + 4, 6);
+        c.restore();
+      }
+      var cap = function () {
+        c.beginPath();
+        c.arc(0, hy, r + 1.5, Math.PI, Math.PI * 2);
+        /* the fringe: soft points that hang below the hairline, kept
+           clear of the eyes */
+        c.lineTo(r + 1.5, hy);
+        c.quadraticCurveTo(r - 1, hy + 2.5, r - 3.5, hy + 0.4);
+        c.quadraticCurveTo(r - 5.5, hy + 1.2, r - 7, hy + 0.2);
+        c.lineTo(1.2, hy + 0.2);
+        c.quadraticCurveTo(0, hy + 2.8, -1.2, hy + 0.2);
+        c.lineTo(-r + 7, hy + 0.2);
+        c.quadraticCurveTo(-r + 5.5, hy + 1.2, -r + 3.5, hy + 0.4);
+        c.quadraticCurveTo(-r + 1, hy + 2.5, -r - 1.5, hy);
+        c.closePath();
+      };
+      cap();
       c.fillStyle = col;
       c.fill();
+      celBands(c, cap, col, -2.2, -2.8, false, 1);
+      c.save();
+      cap();
       c.clip();
       /* light pours over the crown and the fringe falls into shade */
       var hg = c.createLinearGradient(0, hy - r - 2, 0, hy + 2);
-      hg.addColorStop(0, 'rgba(255,255,255,0.2)');
-      hg.addColorStop(0.5, 'rgba(255,255,255,0)');
-      hg.addColorStop(1, 'rgba(42,16,48,0.22)');
+      hg.addColorStop(0, 'rgba(255,255,255,0.18)');
+      hg.addColorStop(0.55, 'rgba(255,255,255,0)');
+      hg.addColorStop(1, 'rgba(42,16,48,0.2)');
       c.fillStyle = hg;
       c.fillRect(-r - 4, hy - r - 4, r * 2 + 8, r + 8);
-      var hs = c.createLinearGradient(-r, 0, r, 0);
-      hs.addColorStop(0, 'rgba(255,255,255,0.14)');
-      hs.addColorStop(0.5, 'rgba(255,255,255,0)');
-      hs.addColorStop(1, 'rgba(42,16,48,0.16)');
-      c.fillStyle = hs;
-      c.fillRect(-r - 4, hy - r - 4, r * 2 + 8, r + 8);
-      c.globalAlpha = 0.3;
-      fillEllipse(c, 1, hy + 1, r + 2, 4.5, dark, false);
-      c.restore();
+      /* strands: fine darker lines following the curve of the cap */
+      c.strokeStyle = shadowCached(col, 16, false);
+      c.lineWidth = 0.7;
+      c.lineCap = 'round';
+      c.globalAlpha = 0.22;
       c.beginPath();
-      c.arc(0, hy, r + 1.5, Math.PI, Math.PI * 2);
-      c.closePath();
+      for (var sd2 = -2; sd2 <= 2; sd2++) {
+        var sx = sd2 * 4.4;
+        c.moveTo(sx * 0.35, hy - r + 1.5);
+        c.quadraticCurveTo(sx * 0.9, hy - r * 0.45, sx * 1.15, hy + 1);
+      }
+      c.stroke();
+      c.restore();
+      cap();
       c.fillStyle = col;
       ink(c, 2);
       switch (cust.hairStyle) {
@@ -410,24 +544,27 @@
   function drawLegs(c, cust, swing) {
     var skin = skinOf(cust);
     var bot = CH.torsoBot;
-    volumeRound(c, -7 + swing * 0.5, bot, 6, 12, 3, skin);
-    volumeRound(c, 1 - swing * 0.5, bot, 6, 12, 3, skin);
+    /* the legs vanish into shadow where they meet the hem */
+    var legOpts = { warm: true, topShade: 0.3 };
+    volumeRound(c, -7 + swing * 0.5, bot, 6, 12, 3, skin, 2, legOpts);
+    volumeRound(c, 1 - swing * 0.5, bot, 6, 12, 3, skin, 2, legOpts);
   }
 
   function drawPantsLegs(c, cust, swing) {
     var col = cust.pantsColor, dark = shade(col, -20), light = shade(col, 25);
     var bot = CH.torsoBot;
     var lx = -7 + swing * 0.5, rx = 1 - swing * 0.5;
+    var pOpts = { topShade: 0.22 };
     switch (cust.pants) {
       case 'jeans':
-        volumeRound(c, lx - 0.5, bot - 2, 7, 12, 2.5, col);
-        volumeRound(c, rx - 0.5, bot - 2, 7, 12, 2.5, col);
+        volumeRound(c, lx - 0.5, bot - 2, 7, 12, 2.5, col, 2, pOpts);
+        volumeRound(c, rx - 0.5, bot - 2, 7, 12, 2.5, col, 2, pOpts);
         c.strokeStyle = light; c.lineWidth = 1;
         c.beginPath(); c.moveTo(lx + 1, bot + 7); c.lineTo(lx + 1, bot + 9.5); c.moveTo(rx + 5, bot + 7); c.lineTo(rx + 5, bot + 9.5); c.stroke();
         break;
       case 'leggings':
-        volumeRound(c, lx, bot - 2, 6, 12, 3, col);
-        volumeRound(c, rx, bot - 2, 6, 12, 3, col);
+        volumeRound(c, lx, bot - 2, 6, 12, 3, col, 2, pOpts);
+        volumeRound(c, rx, bot - 2, 6, 12, 3, col, 2, pOpts);
         break;
       case 'stripey':
         for (var s = 0; s < 2; s++) {
@@ -447,8 +584,8 @@
         fillRound(c, -8, bot - 4, 16, 3, 1.5, dark, false);
         break;
       case 'overalls':
-        volumeRound(c, lx - 0.5, bot - 2, 7, 12, 2.5, col);
-        volumeRound(c, rx - 0.5, bot - 2, 7, 12, 2.5, col);
+        volumeRound(c, lx - 0.5, bot - 2, 7, 12, 2.5, col, 2, pOpts);
+        volumeRound(c, rx - 0.5, bot - 2, 7, 12, 2.5, col, 2, pOpts);
         break;
       /* skirts are drawn by drawSkirt(), over the camisole */
     }
@@ -509,7 +646,7 @@
       fillRound(c, 1 - swing * 0.5, bot - 3, 7, 7, 2.5, cream);
     }
     if (cust.dress === 'none') {
-      shadedFill(c, rrPath(c, -9, top, 18, (bot + 2) - top, 4), cream);
+      shadedFill(c, rrPath(c, -9, top, 18, (bot + 2) - top, 4), cream, 2, { strength: 0.8 });
       c.strokeStyle = PAL.ink; c.lineWidth = 1.4;
       c.beginPath(); c.moveTo(-6, top); c.lineTo(-6, top - 3); c.moveTo(6, top); c.lineTo(6, top - 3); c.stroke();
       if (!cust.mannequin) heart(c, 0, top + 8, 2.4, PAL.pink, false);
@@ -1051,9 +1188,9 @@
     } else {
       fillEllipse(c, x, y + 0.6, rx * 0.5, ry * 0.56, PAL.ink, false);
     }
-    fillEllipse(c, x + rx * 0.3, y - ry * 0.35, 0.95, 1.15, '#ffffff', false);
-    if (style === 'sparkle') fillEllipse(c, x - rx * 0.35, y + ry * 0.4, 0.7, 0.7, '#ffffff', false);
-    else fillEllipse(c, x - rx * 0.25, y + ry * 0.5, 0.5, 0.5, '#ffffff', false);
+    fillEllipse(c, x - rx * 0.32, y - ry * 0.38, 1.05, 1.25, '#ffffff', false);
+    if (style === 'sparkle') fillEllipse(c, x + rx * 0.4, y + ry * 0.4, 0.75, 0.75, '#ffffff', false);
+    else fillEllipse(c, x + rx * 0.3, y + ry * 0.5, 0.55, 0.55, '#ffffff', false);
     c.restore();
     if (style === 'cat') {
       c.beginPath();
@@ -1062,6 +1199,26 @@
       c.quadraticCurveTo(x, y + 3.6, x - 3.6, y + 0.5);
       c.closePath();
       ink(c, 1);
+    } else {
+      /* the upper lid: a heavy lash line that thins toward the inner
+         corner, with a flick at the outer one */
+      c.save();
+      c.strokeStyle = PAL.ink;
+      c.lineCap = 'round';
+      c.lineWidth = 1.5;
+      c.beginPath();
+      c.ellipse(x, y, rx + 0.2, ry + 0.2, 0, Math.PI * 1.08, Math.PI * 1.78);
+      c.stroke();
+      c.lineWidth = 0.9;
+      c.beginPath();
+      c.ellipse(x, y, rx + 0.2, ry + 0.2, 0, Math.PI * 1.78, Math.PI * 1.95);
+      c.stroke();
+      c.lineWidth = 1.2;
+      c.beginPath();
+      c.moveTo(x + side * (rx - 0.2), y - ry * 0.55);
+      c.lineTo(x + side * (rx + 1.4), y - ry * 0.95);
+      c.stroke();
+      c.restore();
     }
     if (style === 'sparkle' || style === 'cat') {
       c.strokeStyle = PAL.ink; c.lineWidth = 1; c.lineCap = 'round';
@@ -1155,52 +1312,75 @@
 
   function drawHeadBall(c, cust) {
     var skin = skinOf(cust);
-    fillEllipse(c, 0, CH.headY, CH.headR, CH.headR + 0.5, skin, false);
+    var hy = CH.headY, r = CH.headR;
+    var head = function () { c.beginPath(); c.ellipse(0, hy, r, r + 0.5, 0, 0, Math.PI * 2); };
+    head();
+    c.fillStyle = skin;
+    c.fill();
+    /* the sphere's terminator: two warm bands round the jaw and the
+       shadow cheek */
+    celBands(c, head, skin, -2.4, -3, true, 0.85);
     c.save();
-    c.beginPath();
-    c.ellipse(0, CH.headY, CH.headR, CH.headR + 0.5, 0, 0, Math.PI * 2);
+    head();
     c.clip();
-    c.globalAlpha = 0.5;
-    fillEllipse(c, 2.5, CH.headY + 3.5, CH.headR, CH.headR + 0.5, shade(skin, -12), false);
-    c.globalAlpha = 1;
-    fillEllipse(c, -1, CH.headY - 1.2, CH.headR, CH.headR + 0.5, skin, false);
-    /* a sphere: lit high on the left, falling off toward the jaw */
-    var sg = c.createRadialGradient(-4, CH.headY - 5, 1, -1, CH.headY - 1, CH.headR + 2);
-    sg.addColorStop(0, 'rgba(255,255,255,0.22)');
+    /* lit high on the left, falling off toward the jaw */
+    var sg = c.createRadialGradient(-4, hy - 5, 1, -1, hy - 1, r + 2);
+    sg.addColorStop(0, 'rgba(255,255,255,0.24)');
     sg.addColorStop(0.55, 'rgba(255,255,255,0)');
-    sg.addColorStop(1, 'rgba(42,16,48,0.14)');
+    sg.addColorStop(1, 'rgba(90,30,40,0.08)');
     c.fillStyle = sg;
-    c.fillRect(-20, CH.headY - 20, 40, 40);
+    c.fillRect(-20, hy - 20, 40, 40);
+    /* the chin catches a little bounce from the chest */
+    var bg = c.createLinearGradient(0, hy + r, 0, hy + r - 5);
+    bg.addColorStop(0, 'rgba(255,220,230,0.3)');
+    bg.addColorStop(1, 'rgba(255,220,230,0)');
+    c.fillStyle = bg;
+    c.fillRect(-20, hy + r - 6, 40, 8);
     c.restore();
-    c.beginPath();
-    c.ellipse(0, CH.headY, CH.headR, CH.headR + 0.5, 0, 0, Math.PI * 2);
+    head();
+    c.fillStyle = skin;
     ink(c, 2);
-    /* soft rim light on the cheek */
+    /* soft highlight on the cheekbone */
     c.save();
-    c.globalAlpha = 0.35;
-    fillEllipse(c, -5.5, CH.headY + 2, 2.6, 1.6, '#ffffff', false);
+    c.globalAlpha = 0.4;
+    fillEllipse(c, -6, hy + 1.5, 2.4, 1.5, '#ffffff', false);
     c.restore();
   }
 
-  /* A glossy streak across the top of whatever hair is on the head,
-     clipped to the head so every style gets the same studio shine. */
+  /* The angel ring: a toothed band of light across the crown, the
+     shorthand every animated studio uses for glossy hair. Clipped to the
+     cap so every style gets the same studio shine. */
   function drawHairGloss(c, cust) {
     if (cust.mannequin && !cust.showHair) return;
+    var hy = CH.headY, r = CH.headR;
+    var light = mix(shade(cust.hair, 52), '#ffffff', 0.25);
     c.save();
     c.beginPath();
-    c.ellipse(0, CH.headY - 2, CH.headR + 3, CH.headR + 3, 0, 0, Math.PI * 2);
+    c.arc(0, hy, r + 1.2, Math.PI, Math.PI * 2);
+    c.closePath();
     c.clip();
-    c.globalAlpha = 0.28;
-    c.strokeStyle = '#ffffff';
-    c.lineWidth = 2.2;
-    c.lineCap = 'round';
+    c.fillStyle = light;
+    c.globalAlpha = 0.62;
+    var rr = r - 1.6;
     c.beginPath();
-    c.arc(0, CH.headY + 1, CH.headR - 1.5, -2.45, -1.55);
-    c.stroke();
-    c.globalAlpha = 0.18;
+    /* upper edge: a smooth arc */
+    c.arc(0, hy + 1.5, rr, Math.PI * 1.2, Math.PI * 1.8);
+    /* lower edge: the arc again, two px down, broken into teeth */
+    var n = 7;
+    for (var i = n; i >= 0; i--) {
+      var a = Math.PI * 1.8 - (Math.PI * 0.6) * (i / n);
+      var dip = (i % 2 === 0) ? 3.2 : 1.4;
+      c.lineTo(Math.cos(a) * (rr - dip), hy + 1.5 + Math.sin(a) * (rr - dip));
+    }
+    c.closePath();
+    c.fill();
+    /* a second, smaller glint higher up */
+    c.globalAlpha = 0.45;
     c.beginPath();
-    c.arc(0, CH.headY + 1, CH.headR - 1.5, -1.3, -1.05);
-    c.stroke();
+    c.arc(0, hy + 1.5, rr - 5.5, Math.PI * 1.32, Math.PI * 1.5);
+    c.arc(0, hy + 1.5, rr - 7.2, Math.PI * 1.5, Math.PI * 1.32, true);
+    c.closePath();
+    c.fill();
     c.restore();
   }
 
@@ -1210,27 +1390,51 @@
     var top = CH.torsoTop;
     var ax = isFront ? 8 + swing * 0.4 : -13 - swing * 0.4;
     var hand;
+    var aOpts = { warm: true, topShade: isFront ? 0.18 : 0.3 };
     if (pose === 'up') {
-      volumeRound(c, ax, top - 14, 5, 18, 2.5, skin);
+      volumeRound(c, ax, top - 14, 5, 18, 2.5, skin, 2, { warm: true });
       hand = { x: ax + 2.5, y: top - 15 };
-      fillEllipse(c, hand.x, hand.y, 3.4, 3.2, skin);
+      drawHand(c, hand.x, hand.y, skin);
       drawSleeve(c, cust, ax, top - 2, isFront);
     } else if (pose === 'hip') {
       c.save();
       c.translate(ax + 2.5, top + 3);
       c.rotate(isFront ? -0.9 : 0.9);
-      volumeRound(c, -2.5, 0, 5, 13, 2.5, skin);
+      volumeRound(c, -2.5, 0, 5, 13, 2.5, skin, 2, aOpts);
       c.restore();
       hand = { x: ax + 2.5 + (isFront ? 9 : -9), y: top + 12 };
-      fillEllipse(c, hand.x, hand.y, 3.4, 3.2, skin);
+      drawHand(c, hand.x, hand.y, skin);
       drawSleeve(c, cust, ax, top + 3, isFront);
     } else {
-      volumeRound(c, ax, top + 3, 5, 14, 2.5, skin);
+      /* the hanging arm throws a soft shadow onto the body beside it */
+      if (isFront) {
+        c.save();
+        var as = c.createLinearGradient(ax - 4.5, 0, ax + 0.5, 0);
+        as.addColorStop(0, 'rgba(42,16,48,0)');
+        as.addColorStop(1, 'rgba(42,16,48,0.2)');
+        c.fillStyle = as;
+        c.fillRect(ax - 4.5, top + 4, 5, 13);
+        c.restore();
+      }
+      volumeRound(c, ax, top + 3, 5, 14, 2.5, skin, 2, aOpts);
       hand = { x: ax + 2.5, y: top + 17 };
-      fillEllipse(c, hand.x, hand.y, 3.4, 3.2, skin);
+      drawHand(c, hand.x, hand.y, skin);
       drawSleeve(c, cust, ax, top + 3, isFront);
     }
     return hand;
+  }
+  /* A little mitten of a hand, shaded like the sphere it almost is. */
+  function drawHand(c, x, y, skin) {
+    fillEllipse(c, x, y, 3.4, 3.2, skin, false);
+    c.save();
+    c.beginPath(); c.ellipse(x, y, 3.4, 3.2, 0, 0, Math.PI * 2); c.clip();
+    fillEllipse(c, x + 1.2, y + 1.3, 3.4, 3.2, shadowCached(skin, 18, true), false);
+    fillEllipse(c, x + 0.1, y + 0.2, 3.1, 2.9, skin, false);
+    fillEllipse(c, x - 1, y - 1.1, 1.1, 0.8, 'rgba(255,255,255,0.4)', false);
+    c.restore();
+    c.beginPath(); c.ellipse(x, y, 3.4, 3.2, 0, 0, Math.PI * 2);
+    c.fillStyle = skin;
+    ink(c, 2);
   }
 
   /* frame: 0..3 walk cycle (or 0 when standing). facing: 1 right, -1 left.
@@ -1254,7 +1458,11 @@
     var frontPose = pose === 'wave' ? 'up' : pose === 'pose' ? 'hip' : 'down';
     var backPose = pose === 'pose' ? 'hip' : 'down';
 
-    if (!opts.noShadow) softShadow(c, 0, 1, 18 - (lift || 0) * 0.4, 4.5, 0.26);
+    if (!opts.noShadow) {
+      softShadow(c, 0, 1, 19 - (lift || 0) * 0.4, 4.8, 0.3);
+      /* a tight contact core right under the feet */
+      softShadow(c, 0, 0.5, 9 - (lift || 0) * 0.3, 2.4, 0.3);
+    }
     c.translate(0, bob - (lift || 0));
     /* standing still she breathes: a slow rise of the chest about the feet */
     if (frame === 0 && opts.t !== undefined) {
@@ -1290,10 +1498,13 @@
     drawBagFront(c, cust, hand.x, hand.y);
     drawWand(c, cust, hand.x, hand.y, opts.t);
 
-    /* the head's shadow on the shoulders, whatever she is wearing */
+    /* the head's shadow on the shoulders, whatever she is wearing: a
+       hard-edged core where the chin sits and a soft spread round it */
     c.save();
-    c.globalAlpha = 0.16;
-    fillEllipse(c, 0.5, CH.torsoTop + 1.5, 9.5, 3.2, '#2a1030', false);
+    c.globalAlpha = 0.12;
+    fillEllipse(c, 1.5, CH.torsoTop + 2.5, 12, 4.2, '#2a1030', false);
+    c.globalAlpha = 0.2;
+    fillEllipse(c, 1, CH.torsoTop + 1.5, 9.5, 2.8, '#2a1030', false);
     c.restore();
 
     /* Head */
@@ -1547,6 +1758,9 @@
     fillEllipse: fillEllipse,
     fillPath: fillPath,
     shade: shade,
+    mix: mix,
+    shadowOf: shadowOf,
+    celBands: celBands,
     star: star,
     heart: heart,
     heartPath: heartPath,

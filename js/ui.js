@@ -55,9 +55,13 @@
     var pressed = hot && Game.input.pointer.down;
     var oy = pressed ? 2 : 0;
     c.save();
+    /* soft shadow pool plus the thick base the key stands on */
     if (!pressed) {
-      c.fillStyle = 'rgba(74, 42, 64, 0.28)';
-      E.roundRect(c, b.x, b.y + 3, b.w, b.h, r);
+      c.fillStyle = 'rgba(43, 21, 48, 0.14)';
+      E.roundRect(c, b.x - 2, b.y + 5, b.w + 4, b.h + 2, r + 2);
+      c.fill();
+      c.fillStyle = typeof fill === 'string' && fill.charAt(0) === '#' ? E.shade(fill, -38) : 'rgba(74, 42, 64, 0.5)';
+      E.roundRect(c, b.x, b.y + 3.5, b.w, b.h, r);
       c.fill();
     }
     c.fillStyle = fill;
@@ -68,26 +72,35 @@
     E.roundRect(c, b.x, b.y + oy, b.w, b.h, r);
     c.clip();
     var bg = c.createLinearGradient(0, b.y + oy, 0, b.y + oy + b.h);
-    bg.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+    bg.addColorStop(0, 'rgba(255, 255, 255, 0.28)');
     bg.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
-    bg.addColorStop(1, 'rgba(74, 42, 64, 0.14)');
+    bg.addColorStop(0.86, 'rgba(74, 42, 64, 0.08)');
+    bg.addColorStop(1, 'rgba(74, 42, 64, 0.22)');
     c.fillStyle = bg;
     c.fillRect(b.x, b.y + oy, b.w, b.h);
-    c.restore();
     if (hot) {
-      E.roundRect(c, b.x, b.y + oy, b.w, b.h, r);
       c.fillStyle = 'rgba(255, 255, 255, 0.28)';
-      c.fill();
+      c.fillRect(b.x, b.y + oy, b.w, b.h);
     }
-    c.fillStyle = 'rgba(255, 255, 255, 0.38)';
-    E.roundRect(c, b.x + 3, b.y + oy + 2, b.w - 6, b.h * 0.42, Math.max(2, r - 3));
+    /* the glossy cap across the upper half */
+    var cap = c.createLinearGradient(0, b.y + oy + 2, 0, b.y + oy + b.h * 0.46);
+    cap.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
+    cap.addColorStop(1, 'rgba(255, 255, 255, 0.16)');
+    c.fillStyle = cap;
+    E.roundRect(c, b.x + 3, b.y + oy + 2, b.w - 6, b.h * 0.44, Math.max(2, r - 3));
     c.fill();
+    c.restore();
     E.roundRect(c, b.x, b.y + oy, b.w, b.h, r);
     E.ink(c, opts.active || hot ? 3 : 2);
-    c.fillStyle = opts.disabled ? '#7a6a74' : (opts.textColor || PAL.ink);
     fitFont(c, label, b.w - 12, opts.font || 15, 'bold');
     c.textAlign = 'center';
     c.textBaseline = 'middle';
+    /* letterpress: a pale lift under the text, then the text */
+    if (!opts.disabled) {
+      c.fillStyle = 'rgba(255, 255, 255, 0.55)';
+      c.fillText(label, b.x + b.w / 2, b.y + oy + b.h / 2 + 2.2);
+    }
+    c.fillStyle = opts.disabled ? '#7a6a74' : (opts.textColor || PAL.ink);
     c.fillText(label, b.x + b.w / 2, b.y + oy + b.h / 2 + 1);
     c.restore();
   }
@@ -124,10 +137,13 @@
 
   function panel(c, x, y, w, h, fill, alpha) {
     c.save();
-    /* two-step drop shadow: a tight dark one and a wide soft one */
-    c.fillStyle = 'rgba(43, 21, 48, 0.1)';
-    E.roundRect(c, x - 4, y + 2, w + 8, h + 10, 16); c.fill();
-    c.fillStyle = 'rgba(43, 21, 48, 0.22)';
+    /* three-step drop shadow: a wide soft one, a mid one, and a tight
+       dark one right under the edge, so the card lifts off the room */
+    c.fillStyle = 'rgba(43, 21, 48, 0.08)';
+    E.roundRect(c, x - 8, y + 4, w + 16, h + 18, 20); c.fill();
+    c.fillStyle = 'rgba(43, 21, 48, 0.12)';
+    E.roundRect(c, x - 3, y + 3, w + 6, h + 9, 15); c.fill();
+    c.fillStyle = 'rgba(43, 21, 48, 0.26)';
     E.roundRect(c, x, y + 4, w, h, 12); c.fill();
     if (alpha !== undefined) c.globalAlpha = alpha;
     c.fillStyle = fill || 'rgba(255, 246, 236, 0.94)';
@@ -137,12 +153,28 @@
     E.roundRect(c, x, y, w, h, 12);
     c.clip();
     var g = c.createLinearGradient(0, y, 0, y + h);
-    g.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
-    g.addColorStop(0.18, 'rgba(255, 255, 255, 0)');
-    g.addColorStop(0.85, 'rgba(226, 85, 154, 0)');
-    g.addColorStop(1, 'rgba(226, 85, 154, 0.08)');
+    g.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+    g.addColorStop(0.2, 'rgba(255, 255, 255, 0)');
+    g.addColorStop(0.8, 'rgba(226, 85, 154, 0)');
+    g.addColorStop(1, 'rgba(226, 85, 154, 0.1)');
     c.fillStyle = g;
     c.fillRect(x, y, w, h);
+    /* the card's face darkens a touch toward its edges, like paper
+       under a lamp */
+    var pv = c.createRadialGradient(x + w / 2, y + h / 2, Math.min(w, h) * 0.2, x + w / 2, y + h / 2, Math.max(w, h) * 0.75);
+    pv.addColorStop(0, 'rgba(226, 85, 154, 0)');
+    pv.addColorStop(1, 'rgba(160, 60, 130, 0.1)');
+    c.fillStyle = pv;
+    c.fillRect(x, y, w, h);
+    /* the hairline inner frame of a printed card */
+    c.strokeStyle = 'rgba(242, 182, 50, 0.5)';
+    c.lineWidth = 1.2;
+    E.roundRect(c, x + 5, y + 5, w - 10, h - 10, 8);
+    c.stroke();
+    c.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    c.lineWidth = 1;
+    E.roundRect(c, x + 6.5, y + 6.5, w - 13, h - 13, 7);
+    c.stroke();
     c.restore();
     E.roundRect(c, x, y, w, h, 12);
     E.ink(c, 2);
@@ -359,21 +391,28 @@
     c.restore();
   }
 
+  /* The house lights come down a notch on every menu, so the cards and
+     the lit podium are the bright things in the room. */
+  function drawDusk(c, amount) {
+    c.save();
+    c.globalCompositeOperation = 'multiply';
+    var k = amount === undefined ? 1 : amount;
+    var dusk = c.createLinearGradient(0, VIEW.y, 0, VIEW.y + VIEW.h);
+    dusk.addColorStop(0, 'rgb(' + Math.round(255 - 95 * k) + ',' + Math.round(255 - 145 * k) + ',' + Math.round(255 - 80 * k) + ')');
+    dusk.addColorStop(0.5, 'rgb(' + Math.round(255 - 37 * k) + ',' + Math.round(255 - 75 * k) + ',' + Math.round(255 - 41 * k) + ')');
+    dusk.addColorStop(1, 'rgb(' + Math.round(255 - 75 * k) + ',' + Math.round(255 - 125 * k) + ',' + Math.round(255 - 73 * k) + ')');
+    c.fillStyle = dusk;
+    c.fillRect(VIEW.x, VIEW.y, VIEW.w, VIEW.h);
+    c.restore();
+  }
+
   function drawTitleScreen(c) {
     t++;
     /* windows at x=310 and 740: behind the podium and past the buttons */
     Game.studio.drawBackdrop(c, 0, t, TITLE_GROUND, 250, true);
     /* the house lights are down: the room falls to dusk and the spots
        take over, so the eye lands on the podium and the title */
-    c.save();
-    c.globalCompositeOperation = 'multiply';
-    var dusk = c.createLinearGradient(0, VIEW.y, 0, VIEW.y + VIEW.h);
-    dusk.addColorStop(0, 'rgba(160, 110, 175, 1)');
-    dusk.addColorStop(0.5, 'rgba(218, 180, 214, 1)');
-    dusk.addColorStop(1, 'rgba(180, 130, 182, 1)');
-    c.fillStyle = dusk;
-    c.fillRect(VIEW.x, VIEW.y, VIEW.w, VIEW.h);
-    c.restore();
+    drawDusk(c, 1);
     drawPetals(c, false, true);
     c.save();
     clipGame(c);
@@ -630,6 +669,7 @@
   function drawIntroScreen(c) {
     t++;
     Game.studio.drawBackdrop(c, 0, t, TITLE_GROUND, 0, true);
+    drawDusk(c, 0.6);
     clipGame(c);
 
     /* picture: Momoko in the studio doorway, looking at a dress rack */
@@ -640,12 +680,24 @@
     c.save();
     E.roundRect(c, R.x, R.y, R.w, R.h, 12);
     c.clip();
-    var g = c.createLinearGradient(0, R.y, 0, R.y + R.h);
-    g.addColorStop(0, '#fff0f6'); g.addColorStop(1, PAL.wallB);
-    c.fillStyle = g; c.fillRect(R.x, R.y, R.w, R.h);
     var gy = R.y + R.h - 60;
-    c.fillStyle = PAL.floor; c.fillRect(R.x, gy, R.w, 60);
-    c.fillStyle = 'rgba(255,255,255,0.4)'; c.fillRect(R.x, gy, R.w, 3);
+    /* the real studio wall and floor, framed: the picture is a window
+       onto the room she is about to walk into */
+    c.save();
+    c.translate(0, gy - TITLE_GROUND);
+    Game.studio.drawWall(c, 1290, TITLE_GROUND);
+    Game.studio.drawFloor(c, 1290, TITLE_GROUND);
+    c.restore();
+    var ao = c.createLinearGradient(0, gy - 2, 0, gy + 30);
+    ao.addColorStop(0, 'rgba(50, 20, 60, 0.4)'); ao.addColorStop(1, 'rgba(50, 20, 60, 0)');
+    c.fillStyle = ao; c.fillRect(R.x, gy - 2, R.w, 32);
+    /* a warm pool of light on her from above */
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    var lp = c.createRadialGradient(R.x + 70, gy - 90, 10, R.x + 70, gy - 90, 150);
+    lp.addColorStop(0, 'rgba(255, 236, 200, 0.32)'); lp.addColorStop(1, 'rgba(255, 236, 200, 0)');
+    c.fillStyle = lp; c.fillRect(R.x, R.y, R.w, R.h);
+    c.restore();
     /* the dress rack booth, moved from its world position into the frame */
     var rack = Game.STATIONS[6];
     c.save();
@@ -788,6 +840,7 @@
     if (!st) return;
     var look = Game.look;
     Game.studio.drawBackdrop(c, st.x - W / 2, t, TITLE_GROUND, 0, true);
+    drawDusk(c, 0.55);
     c.save();
     clipGame(c);
 
