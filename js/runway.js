@@ -413,10 +413,11 @@
 
   function draw(c) {
     if (!show) return;
-    Game.studio.drawStage(c, t, show.excitement);
+    var m = current();
+    var onStage = m && show.phase !== 'results' && show.phase !== 'ready';
+    Game.studio.drawStage(c, t, show.excitement, onStage ? m.x : null);
     c.save();
     c.beginPath(); c.rect(0, 0, W, H); c.clip();
-    var m = current();
     if (m && show.phase !== 'results') drawModel(c, m);
     for (var f = 0; f < flashes.length; f++) Game.studio.drawFlash(c, flashes[f].x, flashes[f].y, flashes[f].life);
     for (var p = 0; p < particles.length; p++) particles[p].draw(c);

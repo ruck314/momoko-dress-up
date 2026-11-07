@@ -27,18 +27,38 @@
      ================================================================ */
   var BUNTING_COLS = [PAL.pink, PAL.sun, PAL.mint, PAL.lavender, PAL.sky, PAL.coral];
 
-  /* Wallpaper tile: tiny hearts and dots on the pink, painted once. */
+  /* Wallpaper tile: a damask lattice with a four-petal motif at every
+     node and a tiny heart in every cell, painted once. */
   function wallpaperTile() {
     return E.getCachedSprite('wallpaper', 120, 120, function (g) {
-      var rnd = E.seeded(12);
-      g.globalAlpha = 0.18;
-      for (var i = 0; i < 6; i++) {
-        var x = 10 + (i % 3) * 40 + (Math.floor(i / 3) % 2) * 20, y = 14 + Math.floor(i / 3) * 60;
-        if (i % 2 === 0) E.heart(g, x, y, 5, '#ffffff', false);
-        else E.fillEllipse(g, x, y, 3.2, 3.2, '#ffffff', false);
+      g.strokeStyle = 'rgba(255,255,255,0.22)';
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.moveTo(0, 60); g.lineTo(60, 0); g.lineTo(120, 60); g.lineTo(60, 120); g.closePath();
+      g.moveTo(0, 0); g.lineTo(0, 0);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(-60, 60); g.lineTo(0, 0); g.moveTo(0, 120); g.lineTo(-60, 60);
+      g.moveTo(120, 0); g.lineTo(180, 60); g.lineTo(120, 120);
+      g.stroke();
+      var nodes = [[60, 0], [0, 60], [120, 60], [60, 120], [0, 0], [120, 0], [0, 120], [120, 120]];
+      for (var i = 0; i < nodes.length; i++) {
+        var nx = nodes[i][0], ny = nodes[i][1];
+        g.globalAlpha = 0.26;
+        for (var p = 0; p < 4; p++) {
+          var a = p * Math.PI / 2;
+          E.fillEllipse(g, nx + Math.cos(a) * 5, ny + Math.sin(a) * 5, 3.4, 2.2, '#ffffff', false);
+        }
+        g.globalAlpha = 0.3;
+        E.fillEllipse(g, nx, ny, 1.6, 1.6, '#e2559a', false);
       }
-      g.globalAlpha = 0.1;
-      for (var k = 0; k < 8; k++) E.fillEllipse(g, rnd() * 120, rnd() * 120, 1.4, 1.4, '#e2559a', false);
+      g.globalAlpha = 0.16;
+      E.heart(g, 60, 60, 5.5, '#ffffff', false);
+      g.globalAlpha = 0.12;
+      E.fillEllipse(g, 30, 30, 1.6, 1.6, '#e2559a', false);
+      E.fillEllipse(g, 90, 30, 1.6, 1.6, '#e2559a', false);
+      E.fillEllipse(g, 30, 90, 1.6, 1.6, '#e2559a', false);
+      E.fillEllipse(g, 90, 90, 1.6, 1.6, '#e2559a', false);
     });
   }
 
@@ -155,10 +175,24 @@
     sky.addColorStop(1, '#e4f3ff');
     c.fillStyle = sky;
     c.fillRect(x - w / 2, y, w, h);
+    /* sun with a soft halo, clouds, and a garden rolling away below */
+    var halo = c.createRadialGradient(x + 30, y - 2, 10, x + 30, y - 2, 60);
+    halo.addColorStop(0, 'rgba(255, 240, 180, 0.6)');
+    halo.addColorStop(1, 'rgba(255, 240, 180, 0)');
+    c.fillStyle = halo; c.fillRect(x - w / 2, y, w, h);
+    E.fillEllipse(c, x + 30, y - 2, 22, 22, PAL.sun, false);
     E.fillEllipse(c, x - 20, y + 34, 16, 9, '#ffffff', false);
     E.fillEllipse(c, x - 8, y + 28, 12, 8, '#ffffff', false);
-    E.fillEllipse(c, x + 26, y + 70, 14, 8, '#ffffff', false);
-    E.fillEllipse(c, x + 30, y - 2, 22, 22, PAL.sun, false);
+    E.fillEllipse(c, x + 26, y + 60, 14, 8, '#ffffff', false);
+    E.fillEllipse(c, x - 30, y + 102, 60, 22, '#b7e6c9', false);
+    E.fillEllipse(c, x + 34, y + 108, 56, 22, '#9adbb5', false);
+    E.fillEllipse(c, x + 2, y + 118, 70, 18, '#7fcf9e', false);
+    /* a couple of lollipop trees on the near hill */
+    E.fillRound(c, x - 23, y + 88, 3, 14, 1, '#8a5a3a', false);
+    E.fillEllipse(c, x - 21.5, y + 84, 9, 9, '#5cb882', false);
+    E.fillEllipse(c, x - 24, y + 81, 3.5, 2.5, 'rgba(255,255,255,0.4)', false);
+    E.fillRound(c, x + 25, y + 94, 3, 12, 1, '#8a5a3a', false);
+    E.fillEllipse(c, x + 26.5, y + 90, 7, 7, '#ff9ccd', false);
     c.restore();
     E.roundRect(c, x - w / 2, y, w, h, 8);
     E.ink(c, 2);
@@ -214,42 +248,94 @@
     }
   }
 
+  /* Polished marble tiles in one-point perspective. The baseline (where
+     feet land) is the far edge; rows get taller and columns spread as
+     they come toward the camera. The engine mirrors the booths into the
+     band just below the baseline, so the tiles are kept quiet: two close
+     pinks and thin pale grout. */
+  var FLOOR_TILE = 96;          /* world units along the baseline */
+  var FLOOR_HORIZON = 150;      /* vanishing line this far above the baseline */
+  var FLOOR_DEPTH0 = 10;        /* baseline distance in tile depths */
+  function floorRowY(groundY, k) {
+    return groundY - FLOOR_HORIZON + FLOOR_HORIZON * FLOOR_DEPTH0 / (FLOOR_DEPTH0 - k);
+  }
   function drawFloor(c, camX, groundY) {
     var V = view();
     var bottom = V.y + V.h;
+    var vpX = V.x + V.w / 2;
     var g = c.createLinearGradient(0, groundY, 0, bottom);
-    g.addColorStop(0, PAL.floor);
-    g.addColorStop(1, PAL.floorDark);
+    g.addColorStop(0, '#ecc3d5');
+    g.addColorStop(1, '#d9a2b9');
     c.fillStyle = g;
     c.fillRect(V.x, groundY, V.w, bottom - groundY);
-    /* plank lines running into the distance */
+
     c.save();
-    c.strokeStyle = 'rgba(255,255,255,0.35)';
-    c.lineWidth = 1.5;
-    for (var y = groundY + 14; y < bottom; y += 22) {
-      c.beginPath(); c.moveTo(V.x, y); c.lineTo(V.x + V.w, y); c.stroke();
+    c.beginPath(); c.rect(V.x, groundY, V.w, bottom - groundY); c.clip();
+    var j0 = Math.floor((camX - V.w) / FLOOR_TILE) - 1, j1 = Math.ceil((camX + V.w * 2) / FLOOR_TILE) + 1;
+    var k = 0;
+    while (true) {
+      var yA = floorRowY(groundY, k), yB = floorRowY(groundY, k + 1);
+      if (yA > bottom || k > FLOOR_DEPTH0 - 2) break;
+      var scA = FLOOR_DEPTH0 / (FLOOR_DEPTH0 - k), scB = FLOOR_DEPTH0 / (FLOOR_DEPTH0 - k - 1);
+      for (var j = j0; j <= j1; j++) {
+        var sx0 = j * FLOOR_TILE - camX, sx1 = sx0 + FLOOR_TILE;
+        var xA0 = vpX + (sx0 - vpX) * scA, xA1 = vpX + (sx1 - vpX) * scA;
+        var xB0 = vpX + (sx0 - vpX) * scB, xB1 = vpX + (sx1 - vpX) * scB;
+        if (Math.max(xA1, xB1) < V.x || Math.min(xA0, xB0) > V.x + V.w) continue;
+        c.beginPath();
+        c.moveTo(xA0, yA); c.lineTo(xA1, yA); c.lineTo(xB1, yB); c.lineTo(xB0, yB); c.closePath();
+        c.fillStyle = ((j + k) & 1) ? 'rgba(255,255,255,0.16)' : 'rgba(120,50,90,0.07)';
+        c.fill();
+        c.strokeStyle = 'rgba(255,255,255,0.32)';
+        c.lineWidth = 1;
+        c.stroke();
+      }
+      k++;
     }
-    c.strokeStyle = 'rgba(74,42,64,0.14)';
-    var off = -(camX % 120);
-    for (var x = V.x + off - 120; x < V.x + V.w + 120; x += 120) {
-      c.beginPath(); c.moveTo(x, groundY); c.lineTo(x + 30, bottom); c.stroke();
+    /* marble veining: a few soft pale streaks */
+    c.globalAlpha = 0.16;
+    c.strokeStyle = '#ffffff';
+    c.lineWidth = 2;
+    var voff = -(camX % 400);
+    for (var vx = V.x + voff - 400; vx < V.x + V.w + 400; vx += 400) {
+      c.beginPath();
+      c.moveTo(vx, groundY + 6); c.quadraticCurveTo(vx + 160, groundY + 30, vx + 90, bottom);
+      c.stroke();
     }
     c.restore();
-    /* runner carpet down the middle of the hall, with a woven edge */
-    c.fillStyle = 'rgba(226, 85, 154, 0.38)';
-    c.fillRect(V.x, groundY + 10, V.w, 40);
-    c.fillStyle = 'rgba(255, 210, 74, 0.55)';
-    c.fillRect(V.x, groundY + 10, V.w, 3);
-    c.fillRect(V.x, groundY + 47, V.w, 3);
-    c.fillStyle = 'rgba(255,255,255,0.18)';
-    var coff = -(camX % 40);
-    for (var cx = V.x + coff - 40; cx < V.x + V.w + 40; cx += 40) c.fillRect(cx, groundY + 14, 3, 32);
-    /* a sheen across the polished boards */
-    var sheen = c.createLinearGradient(0, groundY, 0, groundY + 50);
-    sheen.addColorStop(0, 'rgba(255,255,255,0.28)');
+    /* a sheen across the polish, strongest at the far edge */
+    var sheen = c.createLinearGradient(0, groundY, 0, groundY + 60);
+    sheen.addColorStop(0, 'rgba(255,255,255,0.3)');
     sheen.addColorStop(1, 'rgba(255,255,255,0)');
     c.fillStyle = sheen;
-    c.fillRect(V.x, groundY, V.w, 50);
+    c.fillRect(V.x, groundY, V.w, 60);
+  }
+
+  /* Warm pools under every ceiling light, so the lights visibly light
+     something. Same spacing as drawLights. */
+  function drawLightPools(c, camX, groundY, t) {
+    var V = view();
+    var span = 190;
+    var start = Math.floor((camX + V.x) / span) * span - span;
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (var wx = start; wx < camX + V.x + V.w + span; wx += span) {
+      var x = wx - camX + 95;
+      var k = Math.round(wx / span);
+      var tw = k % 2 === 0 ? 0.8 + Math.sin(t / 17 + x) * 0.2 : 0.75 + Math.sin(t / 20 + wx) * 0.25;
+      var rx = k % 2 === 0 ? 150 : 100;
+      c.save();
+      c.translate(x, groundY + 26);
+      c.scale(1, 0.26);
+      var g = c.createRadialGradient(0, 0, 2, 0, 0, rx);
+      g.addColorStop(0, 'rgba(255, 236, 190, ' + (0.26 * tw) + ')');
+      g.addColorStop(0.5, 'rgba(255, 236, 190, ' + (0.1 * tw) + ')');
+      g.addColorStop(1, 'rgba(255, 236, 190, 0)');
+      c.fillStyle = g;
+      c.fillRect(-rx, -rx, rx * 2, rx * 2);
+      c.restore();
+    }
+    c.restore();
   }
 
   function drawBackdrop(c, camX, t, groundY, winShift, menu) {
@@ -267,7 +353,132 @@
     drawLights(c, camX, t, menu);
     drawBunting(c, camX, t);
     drawFloor(c, camX, groundY);
+    drawLightPools(c, camX, groundY, t);
     drawFloorShadow(c, groundY);
+  }
+
+  /* ---- Reflections ----
+     The engine paints the booths, props and Momoko mirrored into this
+     offscreen band, fades it toward the camera and lays it on the floor.
+     One band, reused every frame. */
+  var reflCanvas = null, reflCtx = null, reflDpr = 0;
+  var REFL_H = 76;
+  function reflectionBand(drawFn, groundY, camX) {
+    var dpr = Math.min(3, window.devicePixelRatio || 1);
+    if (!reflCanvas || reflDpr !== dpr) {
+      reflCanvas = document.createElement('canvas');
+      reflCanvas.width = Math.ceil(W * dpr);
+      reflCanvas.height = Math.ceil(REFL_H * dpr);
+      reflCtx = reflCanvas.getContext('2d');
+      reflDpr = dpr;
+    }
+    var g = reflCtx;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, REFL_H);
+    g.save();
+    /* world point (x, y) lands at band row groundY - y, flipped */
+    g.translate(0, groundY);
+    g.scale(1, -1);
+    g.translate(-camX, 0);
+    drawFn(g);
+    g.restore();
+    g.globalCompositeOperation = 'destination-out';
+    var fade = g.createLinearGradient(0, 0, 0, REFL_H);
+    fade.addColorStop(0, 'rgba(0,0,0,0.1)');
+    fade.addColorStop(0.45, 'rgba(0,0,0,0.6)');
+    fade.addColorStop(1, 'rgba(0,0,0,1)');
+    g.fillStyle = fade;
+    g.fillRect(0, 0, W, REFL_H);
+    g.globalCompositeOperation = 'source-over';
+    return reflCanvas;
+  }
+  function drawReflectionBand(c, groundY, camX, drawFn, alpha) {
+    var cv = reflectionBand(drawFn, groundY, camX);
+    c.save();
+    c.globalAlpha = alpha || 0.3;
+    c.drawImage(cv, 0, 0, cv.width, cv.height, 0, groundY, W, REFL_H);
+    c.restore();
+  }
+
+  /* ---- Foreground ----
+     Out-of-focus foliage and flower swags at the frame edges, scrolling
+     faster than the room so the camera reads as sitting inside it.
+     Pre-blurred once; browsers without canvas filters get a soft-alpha
+     version instead. */
+  var HAS_FILTER = (function () {
+    try { var cv = document.createElement('canvas'); return 'filter' in cv.getContext('2d'); } catch (e) { return false; }
+  })();
+  function fgLeafSprite(flip) {
+    /* a 60px margin either side so the splayed outer leaves and the
+       blur never meet the sprite edge */
+    return E.getCachedSprite('fgLeaf' + (flip ? 'L' : 'R'), 300, 96, function (g) {
+      if (HAS_FILTER) g.filter = 'blur(2.4px)';
+      g.save();
+      if (flip) { g.translate(300, 0); g.scale(-1, 1); }
+      var leaves = [[96, 100, -0.8, 46], [124, 100, -0.4, 58], [152, 100, 0.05, 64], [182, 100, 0.45, 54], [208, 100, 0.85, 42]];
+      for (var i = 0; i < leaves.length; i++) {
+        var L = leaves[i];
+        g.save();
+        g.translate(L[0], L[1]);
+        g.rotate(L[2]);
+        var grad = g.createLinearGradient(0, 0, 0, -L[3]);
+        grad.addColorStop(0, '#3a7f62');
+        grad.addColorStop(1, '#6cbd96');
+        g.fillStyle = grad;
+        g.beginPath();
+        g.moveTo(0, 0);
+        g.quadraticCurveTo(-16, -L[3] * 0.45, 0, -L[3]);
+        g.quadraticCurveTo(16, -L[3] * 0.45, 0, 0);
+        g.closePath();
+        g.fill();
+        g.strokeStyle = 'rgba(255,255,255,0.3)';
+        g.lineWidth = 1.2;
+        g.beginPath(); g.moveTo(0, -4); g.lineTo(0, -L[3] + 8); g.stroke();
+        g.restore();
+      }
+      g.restore();
+    });
+  }
+  function fgSwagSprite() {
+    return E.getCachedSprite('fgSwag', 260, 70, function (g) {
+      if (HAS_FILTER) g.filter = 'blur(2px)';
+      g.strokeStyle = '#4e8a6a'; g.lineWidth = 3; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(130, 60, 260, 0); g.stroke();
+      var rnd = E.seeded(31);
+      var cols = ['#ff9ccd', '#ffffff', '#ffc2dc', '#ffd9a8', '#c79bff'];
+      for (var i = 0; i < 11; i++) {
+        var u = (i + 0.5) / 11;
+        var x = u * 260, y = 60 * 4 * u * (1 - u) * 0.5 + 6;
+        E.fillEllipse(g, x - 6, y + 4, 7, 4, '#5cb882', false);
+        E.fillEllipse(g, x, y, 8 + rnd() * 4, 8 + rnd() * 3, cols[i % cols.length], false);
+        E.fillEllipse(g, x - 2, y - 2, 3, 2.4, 'rgba(255,255,255,0.6)', false);
+      }
+    });
+  }
+  function drawForeground(c, camX, t) {
+    var V = view();
+    c.save();
+    c.globalAlpha = HAS_FILTER ? 0.82 : 0.6;
+    /* leaves along the bottom edge, every 700 world units, parallax 1.35 */
+    var span = 700;
+    var p = camX * 1.35;
+    var start = Math.floor(p / span) * span - span;
+    for (var sx = start; sx < p + W + span; sx += span) {
+      var x = sx - p;
+      var flip = Math.round(sx / span) % 2 === 0;
+      var sway = Math.sin(t / 70 + sx) * 3;
+      var spr = fgLeafSprite(flip);
+      if (x + 300 > 0 && x < W) E.drawSprite(c, spr, x + sway, H - 72);
+    }
+    /* flower swags hanging from the top edge, parallax 1.2, offset so
+       they never sit on the HUD corner */
+    var span2 = 760, p2 = camX * 1.2;
+    var start2 = Math.floor(p2 / span2) * span2 - span2;
+    for (var sx2 = start2; sx2 < p2 + W + span2; sx2 += span2) {
+      var x2 = sx2 - p2 + 300;
+      if (x2 + 260 > 0 && x2 < W) E.drawSprite(c, fgSwagSprite(), x2, -8 + Math.sin(t / 90 + sx2) * 1.5);
+    }
+    c.restore();
   }
 
   /* Sunlight slanting in through every window and pooling on the floor. */
@@ -391,6 +602,30 @@
     g.addColorStop(1, E.shade(st.hue, 38));
     c.fillStyle = g;
     c.fillRect(x - 74, groundY - 192, 148, 144);
+    /* each booth gets its own wall print: stripes, dots or a lattice */
+    var sidx = Math.round((st.x - Game.STUDIO.stationX0) / Game.STUDIO.stationGap);
+    c.save();
+    c.globalAlpha = 0.5;
+    c.fillStyle = '#ffffff';
+    c.strokeStyle = '#ffffff';
+    if (sidx % 3 === 0) {
+      for (var sp = x - 70; sp < x + 74; sp += 18) c.fillRect(sp, groundY - 192, 7, 144);
+    } else if (sidx % 3 === 1) {
+      for (var py = groundY - 184; py < groundY - 50; py += 16) {
+        for (var pxx = x - 66 + ((py / 16) & 1) * 8; pxx < x + 74; pxx += 16) {
+          c.beginPath(); c.arc(pxx, py, 2.4, 0, Math.PI * 2); c.fill();
+        }
+      }
+    } else {
+      c.lineWidth = 1.4;
+      c.beginPath();
+      for (var lx = x - 120; lx < x + 120; lx += 22) {
+        c.moveTo(lx, groundY - 192); c.lineTo(lx + 72, groundY - 48);
+        c.moveTo(lx + 72, groundY - 192); c.lineTo(lx, groundY - 48);
+      }
+      c.stroke();
+    }
+    c.restore();
     var rnd = E.seeded(st.x);
     for (var d = 0; d < 14; d++) {
       E.fillEllipse(c, x - 70 + rnd() * 140, groundY - 188 + rnd() * 136, 2 + rnd() * 2, 2 + rnd() * 2, 'rgba(255,255,255,0.7)', false);
@@ -742,6 +977,13 @@
     E.fillEllipse(c, px, py - p.r * 0.2, p.r, p.r, skin, false);
     c.beginPath(); c.arc(px, py - p.r * 0.4, p.r + 1, Math.PI, Math.PI * 2); c.closePath();
     c.fillStyle = hair; c.fill();
+    /* stage light catching the top of the head and shoulders */
+    c.save();
+    c.globalAlpha = p.row === 0 ? 0.3 : 0.18;
+    c.strokeStyle = '#ffd6ee'; c.lineWidth = 2.2; c.lineCap = 'round';
+    c.beginPath(); c.arc(px, py - p.r * 0.4, p.r + 0.5, Math.PI * 1.15, Math.PI * 1.85); c.stroke();
+    c.beginPath(); c.arc(px, py + p.r * 0.5 + p.r, p.r * 1.25, Math.PI * 1.12, Math.PI * 1.3); c.stroke();
+    c.restore();
     if (p.hairStyle === 'bun') E.fillEllipse(c, px, py - p.r * 1.45, p.r * 0.45, p.r * 0.45, hair, false);
     if (p.hairStyle === 'pony') E.fillEllipse(c, px + p.r * 0.9, py - p.r * 0.6, p.r * 0.35, p.r * 0.8, hair, false);
     /* glow stick or phone held up */
@@ -775,7 +1017,62 @@
     }
   }
 
-  function drawStage(c, t, excitement) {
+  /* Sequins glittering on the wall under the curtain, seeded once. */
+  var SEQUINS = (function () {
+    var rnd = E.seeded(808), out = [];
+    for (var i = 0; i < 90; i++) out.push({ x: rnd(), y: 246 + rnd() * 48, ph: rnd() * 6.28, sp: 0.6 + rnd() * 0.8 });
+    return out;
+  })();
+
+  /* Two follow-spots from the rig, crossing on whoever is on the
+     catwalk, with a hot pool where they land. */
+  function drawFollowSpots(c, spotX, t) {
+    var V = view();
+    var feetY = RUNWAY.feetY;
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    var rigs = [[W / 2 - 170, '255,236,210', 0.3], [W / 2 + 170, '255,190,230', 0.24]];
+    for (var i = 0; i < rigs.length; i++) {
+      var rx = rigs[i][0], ry = V.y - 20;
+      var dx = spotX - rx, dy = feetY - ry;
+      var len = Math.sqrt(dx * dx + dy * dy);
+      var ang = Math.atan2(dy, dx) - Math.PI / 2;
+      c.save();
+      c.translate(rx, ry);
+      c.rotate(ang);
+      var g = c.createLinearGradient(0, 0, 0, len);
+      g.addColorStop(0, 'rgba(' + rigs[i][1] + ',' + rigs[i][2] + ')');
+      g.addColorStop(0.7, 'rgba(' + rigs[i][1] + ',' + (rigs[i][2] * 0.45) + ')');
+      g.addColorStop(1, 'rgba(' + rigs[i][1] + ',0.02)');
+      c.fillStyle = g;
+      c.beginPath(); c.moveTo(-7, 0); c.lineTo(7, 0); c.lineTo(58, len); c.lineTo(-58, len); c.closePath(); c.fill();
+      var core = c.createLinearGradient(0, 0, 0, len);
+      core.addColorStop(0, 'rgba(255,255,255,0.16)');
+      core.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = core;
+      c.beginPath(); c.moveTo(-3, 0); c.lineTo(3, 0); c.lineTo(22, len); c.lineTo(-22, len); c.closePath(); c.fill();
+      /* the lamp itself */
+      c.restore();
+      E.fillEllipse(c, rx, ry + 6, 9, 5, 'rgba(255,250,235,0.9)', false);
+    }
+    c.restore();
+  }
+  function drawSpotPool(c, spotX, t) {
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    c.translate(spotX, RUNWAY.feetY + 2);
+    c.scale(1, 0.26);
+    var flick = 0.9 + Math.sin(t / 9) * 0.1;
+    var g = c.createRadialGradient(0, 0, 4, 0, 0, 120);
+    g.addColorStop(0, 'rgba(255, 250, 230, ' + (0.5 * flick) + ')');
+    g.addColorStop(0.5, 'rgba(255, 230, 240, ' + (0.18 * flick) + ')');
+    g.addColorStop(1, 'rgba(255, 230, 240, 0)');
+    c.fillStyle = g;
+    c.fillRect(-120, -120, 240, 240);
+    c.restore();
+  }
+
+  function drawStage(c, t, excitement, spotX) {
     var V = view();
     /* dark hall */
     var g = c.createLinearGradient(0, V.y, 0, V.y + V.h);
@@ -811,27 +1108,82 @@
     }
     c.restore();
 
-    /* back curtain with glitter letters */
+    /* back curtain: velvet folds, each a soft column of light and shade */
     var curtainTop = V.y, curtainBot = 240;
-    c.fillStyle = '#7a2060';
+    var vel = c.createLinearGradient(0, curtainTop, 0, curtainBot);
+    vel.addColorStop(0, '#5e163f');
+    vel.addColorStop(0.5, '#8a2468');
+    vel.addColorStop(1, '#6e1c52');
+    c.fillStyle = vel;
     c.fillRect(V.x, curtainTop, V.w, curtainBot - curtainTop);
     c.save();
-    for (var x = V.x; x < V.x + V.w; x += 26) {
-      var cg = c.createLinearGradient(x, 0, x + 26, 0);
-      cg.addColorStop(0, 'rgba(0,0,0,0.25)');
-      cg.addColorStop(0.5, 'rgba(255,255,255,0.08)');
-      cg.addColorStop(1, 'rgba(0,0,0,0.25)');
+    var foldW = 34;
+    var fx0 = V.x - ((V.x % foldW) + foldW) % foldW;
+    for (var x = fx0; x < V.x + V.w; x += foldW) {
+      var cg = c.createLinearGradient(x, 0, x + foldW, 0);
+      cg.addColorStop(0, 'rgba(20,0,20,0.36)');
+      cg.addColorStop(0.3, 'rgba(255,170,220,0.06)');
+      cg.addColorStop(0.5, 'rgba(255,200,235,0.16)');
+      cg.addColorStop(0.7, 'rgba(255,170,220,0.06)');
+      cg.addColorStop(1, 'rgba(20,0,20,0.36)');
       c.fillStyle = cg;
-      c.fillRect(x, curtainTop, 26, curtainBot - curtainTop);
+      c.fillRect(x, curtainTop, foldW, curtainBot - curtainTop);
     }
     c.restore();
+    /* sequinned wall strip under the curtain hem */
+    for (var sq = 0; sq < SEQUINS.length; sq++) {
+      var S = SEQUINS[sq];
+      var tw = Math.sin(t / 6 * S.sp + S.ph);
+      if (tw <= 0.1) continue;
+      c.save();
+      c.globalAlpha = tw * 0.9;
+      c.fillStyle = sq % 3 === 0 ? '#fff6c8' : sq % 3 === 1 ? '#ffd0ea' : '#d8f0ff';
+      E.star(c, V.x + S.x * V.w, S.y, 1.2 + tw * 1.6);
+      c.restore();
+    }
     /* a soft pool of light where the models pose */
     var pool = c.createRadialGradient(RUNWAY.poseX, 200, 10, RUNWAY.poseX, 200, 170);
-    pool.addColorStop(0, 'rgba(255, 230, 250, 0.28)');
+    pool.addColorStop(0, 'rgba(255, 230, 250, 0.22)');
     pool.addColorStop(1, 'rgba(255, 230, 250, 0)');
     c.fillStyle = pool;
     c.fillRect(RUNWAY.poseX - 170, 30, 340, 340);
+    /* gold hem rail with a bright edge */
     E.fillRound(c, V.x, curtainBot - 8, V.w, 10, 0, PAL.gold, false);
+    c.fillStyle = 'rgba(255,255,255,0.45)'; c.fillRect(V.x, curtainBot - 8, V.w, 2);
+    c.fillStyle = 'rgba(74,42,64,0.3)'; c.fillRect(V.x, curtainBot, V.w, 2);
+    /* valance: scalloped swags along the top with gold fringe and tassels */
+    var swagW = 160;
+    var sx0 = V.x - ((V.x % swagW) + swagW) % swagW;
+    for (var swx = sx0; swx < V.x + V.w; swx += swagW) {
+      var sg = c.createLinearGradient(0, curtainTop, 0, curtainTop + 52);
+      sg.addColorStop(0, '#9a2a74');
+      sg.addColorStop(1, '#5e163f');
+      c.fillStyle = sg;
+      c.beginPath();
+      c.moveTo(swx, curtainTop);
+      c.lineTo(swx + swagW, curtainTop);
+      c.quadraticCurveTo(swx + swagW / 2, curtainTop + 96, swx, curtainTop);
+      c.closePath();
+      c.fill();
+      c.strokeStyle = PAL.gold; c.lineWidth = 3;
+      c.beginPath();
+      c.moveTo(swx, curtainTop);
+      c.quadraticCurveTo(swx + swagW / 2, curtainTop + 96, swx + swagW, curtainTop);
+      c.stroke();
+      /* fringe */
+      c.strokeStyle = 'rgba(242,182,50,0.7)'; c.lineWidth = 1.5;
+      c.beginPath();
+      for (var fr = 8; fr < swagW; fr += 8) {
+        var u = fr / swagW;
+        var fy = curtainTop + 96 * u * (1 - u) * 2 * 0.5 + 1;
+        c.moveTo(swx + fr, fy); c.lineTo(swx + fr, fy + 7);
+      }
+      c.stroke();
+      /* tassel at every seam */
+      E.fillRound(c, swx - 3, curtainTop, 6, 26, 3, PAL.gold, false);
+      E.fillEllipse(c, swx, curtainTop + 28, 5, 7, '#e0a52a', false);
+    }
+    if (spotX !== null && spotX !== undefined) drawFollowSpots(c, spotX, t);
     /* big glittery name */
     c.save();
     c.textAlign = 'center'; c.textBaseline = 'middle';
@@ -891,8 +1243,24 @@
     c.fillRect(V.x, ST + 8, V.w, SB - ST - 16);
     c.fillStyle = '#c9a8c0';
     c.fillRect(V.x, SB, V.w, 10);
+    /* LED strip along the lip, hues chasing down the catwalk */
+    for (var led = V.x; led < V.x + V.w; led += 12) {
+      var hue = ((led - V.x) * 0.9 + t * 2.4) % 360;
+      c.fillStyle = 'hsla(' + hue + ', 90%, 70%, 0.9)';
+      c.fillRect(led + 2, SB + 3, 8, 4);
+    }
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    var ledGlow = c.createLinearGradient(0, SB - 4, 0, SB + 14);
+    ledGlow.addColorStop(0, 'rgba(255,200,240,0)');
+    ledGlow.addColorStop(0.5, 'rgba(255,200,240,0.18)');
+    ledGlow.addColorStop(1, 'rgba(255,200,240,0)');
+    c.fillStyle = ledGlow;
+    c.fillRect(V.x, SB - 4, V.w, 18);
+    c.restore();
     c.fillStyle = 'rgba(0,0,0,0.18)';
     c.fillRect(V.x, SB + 10, V.w, 6);
+    if (spotX !== null && spotX !== undefined) drawSpotPool(c, spotX, t);
     /* the pose spot: a bright pool on the catwalk where she stops */
     c.save();
     c.globalCompositeOperation = 'lighter';
@@ -964,7 +1332,10 @@
     drawStage: drawStage,
     drawFlash: drawFlash,
     drawBalloons: drawBalloons,
+    drawReflectionBand: drawReflectionBand,
+    drawForeground: drawForeground,
     stationSample: stationSample,
     RUNWAY: RUNWAY,
+    HAS_FILTER: HAS_FILTER,
   };
 })();

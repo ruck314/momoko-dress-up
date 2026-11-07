@@ -58,8 +58,54 @@
     c.restore();
   }
 
+  /* Outlines take the hue of the fill they border: wine round pink,
+     deep teal round mint, warm brown round skin and gold. Keeping the
+     hue is what makes a flat shape read as painted rather than traced.
+     Neutral fills (white, grey, gradients, rgba strings) keep PAL.ink so
+     the UI chrome stays as it was. */
+  var inkCache = {};
+  function inkColor(fill) {
+    if (typeof fill !== 'string' || fill.charAt(0) !== '#') return PAL.ink;
+    var hit = inkCache[fill];
+    if (hit) return hit;
+    var hex = fill.length === 4
+      ? '#' + fill.charAt(1) + fill.charAt(1) + fill.charAt(2) + fill.charAt(2) + fill.charAt(3) + fill.charAt(3)
+      : fill;
+    var n = parseInt(hex.slice(1, 7), 16);
+    var r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var l = (max + min) / 2, d = max - min;
+    var s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+    var out;
+    if (s < 0.18 || isNaN(s)) {
+      out = PAL.ink;
+    } else {
+      var h;
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h = (h * 60 + 360) % 360;
+      var l2 = Math.min(0.26, l * 0.5), s2 = Math.min(1, s * 0.85 + 0.15);
+      var cc = (1 - Math.abs(2 * l2 - 1)) * s2, x = cc * (1 - Math.abs((h / 60) % 2 - 1)), m = l2 - cc / 2;
+      var rr, gg, bb;
+      if (h < 60) { rr = cc; gg = x; bb = 0; }
+      else if (h < 120) { rr = x; gg = cc; bb = 0; }
+      else if (h < 180) { rr = 0; gg = cc; bb = x; }
+      else if (h < 240) { rr = 0; gg = x; bb = cc; }
+      else if (h < 300) { rr = x; gg = 0; bb = cc; }
+      else { rr = cc; gg = 0; bb = x; }
+      /* a third of the house ink keeps every line in one family */
+      var R = Math.round(((rr + m) * 255) * 0.68 + 74 * 0.32);
+      var G = Math.round(((gg + m) * 255) * 0.68 + 42 * 0.32);
+      var B = Math.round(((bb + m) * 255) * 0.68 + 64 * 0.32);
+      out = '#' + ((1 << 24) + (R << 16) + (G << 8) + B).toString(16).slice(1);
+    }
+    inkCache[fill] = out;
+    return out;
+  }
+
   function ink(c, w) {
-    c.strokeStyle = PAL.ink;
+    c.strokeStyle = inkColor(c.fillStyle);
     c.lineWidth = w || 2;
     c.lineJoin = 'round';
     c.lineCap = 'round';
@@ -940,7 +986,18 @@
     } else {
       fillEllipse(c, x, y, rx, ry, '#ffffff', false);
     }
-    fillEllipse(c, x, y + 0.3, rx * 0.86, ry * 0.86, ec, false);
+    /* iris: darker rim at the top, lit from below, the anime shorthand
+       for a wet, round eye */
+    var ig = c.createLinearGradient(0, y - ry, 0, y + ry);
+    ig.addColorStop(0, shade(ec, -35));
+    ig.addColorStop(0.55, ec);
+    ig.addColorStop(1, shade(ec, 45));
+    fillEllipse(c, x, y + 0.3, rx * 0.86, ry * 0.86, ig, false);
+    /* upper lid shadow across the white */
+    c.save(); c.globalAlpha = 0.22;
+    c.beginPath(); c.ellipse(x, y - ry * 0.55, rx, ry * 0.5, 0, 0, Math.PI * 2);
+    c.fillStyle = PAL.ink; c.fill();
+    c.restore();
     if (style === 'star') {
       c.fillStyle = PAL.ink; star(c, x, y + 0.4, 2.3);
     } else {
@@ -1172,6 +1229,12 @@
     var hand = drawArm(c, cust, true, swing, frontPose);
     drawBagFront(c, cust, hand.x, hand.y);
     drawWand(c, cust, hand.x, hand.y, opts.t);
+
+    /* the head's shadow on the shoulders, whatever she is wearing */
+    c.save();
+    c.globalAlpha = 0.16;
+    fillEllipse(c, 0.5, CH.torsoTop + 1.5, 9.5, 3.2, '#2a1030', false);
+    c.restore();
 
     /* Head */
     drawHeadBall(c, cust);
@@ -1418,6 +1481,7 @@
     drawSprite: drawSprite,
     clearSpriteCache: clearSpriteCache,
     ink: ink,
+    inkColor: inkColor,
     roundRect: roundRect,
     fillRound: fillRound,
     fillEllipse: fillEllipse,

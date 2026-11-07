@@ -13,7 +13,7 @@
   var GAME_X = 0, GAME_Y = 0;
 
   /* Bump alongside CACHE_NAME in sw.js and tag the matching git release. */
-  Game.VERSION = 'v1.3.0';
+  Game.VERSION = 'v1.4.0';
 
   var canvas, ctx;
 
@@ -269,7 +269,10 @@
     if (jp.pause) { prevState = state; state = State.PAUSED; return; }
 
     player.update(keys, 60, Game.STUDIO.width - 60);
-    camera.x = Math.max(0, Math.min(Game.STUDIO.width - W, player.x - W / 2));
+    /* the camera eases after her and looks a little ahead of her feet */
+    var want = Math.max(0, Math.min(Game.STUDIO.width - W, player.x - W / 2 + player.facing * 36));
+    camera.x += (want - camera.x) * 0.1;
+    if (Math.abs(want - camera.x) < 0.3) camera.x = want;
 
     if (jp.action) {
       var target = nearest();
@@ -330,12 +333,38 @@
       case State.WARDROBE: Game.ui.drawWardrobe(ctx); break;
       case State.RUNWAY: Game.runway.draw(ctx); break;
     }
-    if (state !== State.PAUSED) drawVignette(ctx, state === State.PLAYING || state === State.RUNWAY ? 0.3 : 0.2);
+    if (state !== State.PAUSED) {
+      drawBloom(ctx, dpr, state === State.RUNWAY ? 0.26 : 0.16);
+      drawVignette(ctx, state === State.PLAYING || state === State.RUNWAY ? 0.3 : 0.2);
+    }
     if (Game.gate.isOpen()) Game.gate.draw(ctx);
 
     ctx.restore();
     Game.ui.endFrame();
     updateChrome();
+  }
+
+  /* Soft bloom: the finished frame, shrunk to a quarter, blurred and
+     screened back over itself at low alpha. Highlights and the lights
+     bleed a little into their surroundings, which is most of what makes
+     a frame read as lit rather than coloured in. Skipped where canvas
+     filters are missing, since the fallback would just be a blur-free
+     brighten. */
+  var bloomCanvas = null, bloomCtx = null;
+  function drawBloom(c, dpr, alpha) {
+    if (!Game.studio.HAS_FILTER) return;
+    var bw = Math.ceil(CANVAS_W / 6), bh = Math.ceil(CANVAS_H / 6);
+    if (!bloomCanvas) { bloomCanvas = document.createElement('canvas'); bloomCtx = bloomCanvas.getContext('2d'); }
+    if (bloomCanvas.width !== bw || bloomCanvas.height !== bh) { bloomCanvas.width = bw; bloomCanvas.height = bh; }
+    bloomCtx.clearRect(0, 0, bw, bh);
+    bloomCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, bw, bh);
+    c.save();
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.globalCompositeOperation = 'screen';
+    c.globalAlpha = alpha;
+    c.filter = 'blur(4px)';
+    c.drawImage(bloomCanvas, 0, 0, bw, bh, -6, -6, CANVAS_W + 12, CANVAS_H + 12);
+    c.restore();
   }
 
   /* Cinematic edge falloff over whatever was just drawn, so the eye is
@@ -367,16 +396,11 @@
     return state === State.PLAYING || state === State.PAUSED;
   }
 
-  function drawWorld(c) {
+  /* Everything standing on the floor, in world space (caller has
+     translated by -camX). Drawn twice a frame: once mirrored into the
+     reflection band, once for real. */
+  function drawWorldObjects(c, camX, target) {
     var S = Game.STUDIO;
-    var camX = camera.x;
-    var target = nearest();
-
-    Game.studio.drawBackdrop(c, camX, t, S.groundY);
-
-    c.save();
-    c.translate(-camX, 0);
-    if (camX < 500) Game.studio.drawStudioSign(c, 170, S.groundY);
     var i;
     for (i = 0; i < S.decor.length; i++) {
       var d = S.decor[i];
@@ -391,11 +415,30 @@
     if (S.runwayDoor.x > camX - 200 && S.runwayDoor.x < camX + W + 200) {
       Game.studio.drawRunwayDoor(c, S.runwayDoor.x, S.groundY, t, target && target.id === 'runway');
     }
-    E.drawReflection(c, player.x, player.y, Game.look, player.frame, player.facing, PLAYER_SCALE, 0.16, 30, 'rgba(226,170,190,1)');
+  }
+
+  function drawWorld(c) {
+    var S = Game.STUDIO;
+    var camX = camera.x;
+    var target = nearest();
+
+    Game.studio.drawBackdrop(c, camX, t, S.groundY);
+
+    /* the polished floor: booths, props and Momoko mirrored under their feet */
+    Game.studio.drawReflectionBand(c, S.groundY, camX, function (g) {
+      drawWorldObjects(g, camX, target);
+      E.drawCharacter(g, player.x, player.y, Game.look, player.frame, player.facing, PLAYER_SCALE, false, 0, { noShadow: true, t: t });
+    }, 0.34);
+
+    c.save();
+    c.translate(-camX, 0);
+    if (camX < 500) Game.studio.drawStudioSign(c, 170, S.groundY);
+    drawWorldObjects(c, camX, target);
     player.draw(c, Game.look, PLAYER_SCALE, t);
     for (var p = 0; p < particles.length; p++) particles[p].draw(c);
     c.restore();
     drawAmbientSparkles(c, camX);
+    Game.studio.drawForeground(c, camX, t);
 
     if (target && state === State.PLAYING) {
       Game.ui.drawPrompt(c, target.x - camX, target.promptY, target.label);
@@ -558,7 +601,7 @@
     getCameraX: function () { return camera.x; },
     /* debug / test hooks */
     _setState: function (s) { state = s; },
-    _teleport: function (x) { player.x = x; },
+    _teleport: function (x) { player.x = x; camera.x = Math.max(0, Math.min(Game.STUDIO.width - W, x - W / 2)); },
     _openStation: openStation,
     _enterWardrobe: enterWardrobe,
     _enterRunway: enterRunway,

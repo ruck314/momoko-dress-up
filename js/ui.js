@@ -266,10 +266,35 @@
     return titleFriends;
   }
 
+  /* Petals drifting down across the title, deterministic in t. */
+  var PETALS = (function () {
+    var rnd = E.seeded(99), out = [];
+    for (var i = 0; i < 22; i++) out.push({ x: rnd(), sp: 0.25 + rnd() * 0.35, ph: rnd() * 6.28, r: 3 + rnd() * 3, sw: 14 + rnd() * 16, col: i % 3 === 0 ? '#ffffff' : i % 3 === 1 ? '#ffb7d9' : '#ff9ccd' });
+    return out;
+  })();
+  function drawPetals(c) {
+    c.save();
+    for (var i = 0; i < PETALS.length; i++) {
+      var p = PETALS[i];
+      var y = ((t * p.sp + p.ph * 90) % (VIEW.h + 60)) - 30 + VIEW.y;
+      var x = VIEW.x + p.x * VIEW.w + Math.sin(t / 40 + p.ph) * p.sw;
+      c.save();
+      c.translate(x, y);
+      c.rotate(Math.sin(t / 30 + p.ph) * 0.8 + p.ph);
+      c.globalAlpha = 0.75;
+      E.fillEllipse(c, 0, 0, p.r, p.r * 0.6, p.col, false);
+      c.globalAlpha = 0.5;
+      E.fillEllipse(c, -p.r * 0.3, -p.r * 0.15, p.r * 0.4, p.r * 0.22, '#ffffff', false);
+      c.restore();
+    }
+    c.restore();
+  }
+
   function drawTitleScreen(c) {
     t++;
     /* windows at x=310 and 740: behind the podium and past the buttons */
     Game.studio.drawBackdrop(c, 0, t, TITLE_GROUND, 250, true);
+    drawPetals(c);
     c.save();
     clipGame(c);
 
@@ -292,17 +317,21 @@
     var hop = Math.max(0, Math.sin(t / 22)) * 6;
     /* velvet ropes either side of the podium */
     for (var ps = -1; ps <= 1; ps += 2) {
-      var sx2 = px + ps * 196;
+      var sx2 = px + ps * 174;
       E.fillEllipse(c, sx2, py + 4, 13, 4, PAL.woodDark);
       E.fillRound(c, sx2 - 2.5, py - 54, 5, 58, 2, PAL.gold);
       E.fillEllipse(c, sx2, py - 56, 5.5, 5.5, PAL.gold);
     }
     c.strokeStyle = PAL.pinkDeep; c.lineWidth = 4; c.lineCap = 'round';
-    c.beginPath(); c.moveTo(px - 196, py - 52); c.quadraticCurveTo(px - 160, py - 26, px - 130, py - 30); c.stroke();
-    c.beginPath(); c.moveTo(px + 196, py - 52); c.quadraticCurveTo(px + 160, py - 26, px + 130, py - 30); c.stroke();
-    E.drawReflection(c, px - 110, py - 8, cast[0], 0, 1, 1.2, 0.18, 24, 'rgba(255,143,192,1)', { pose: 'pose' });
-    E.drawReflection(c, px + 110, py - 8, cast[1], 0, -1, 1.2, 0.18, 24, 'rgba(255,143,192,1)', { pose: 'wave' });
-    E.drawReflection(c, px, py - 10, Game.look, 0, 1, 1.6, 0.18, 26, 'rgba(255,143,192,1)');
+    c.beginPath(); c.moveTo(px - 174, py - 52); c.quadraticCurveTo(px - 150, py - 26, px - 130, py - 30); c.stroke();
+    c.beginPath(); c.moveTo(px + 174, py - 52); c.quadraticCurveTo(px + 150, py - 26, px + 130, py - 30); c.stroke();
+    /* reflections live on the podium disc only */
+    c.save();
+    c.beginPath(); c.ellipse(px, py - 4, 150, 20, 0, 0, Math.PI * 2); c.clip();
+    E.drawReflection(c, px - 110, py - 8, cast[0], 0, 1, 1.2, 0.2, 24, null, { pose: 'pose' });
+    E.drawReflection(c, px + 110, py - 8, cast[1], 0, -1, 1.2, 0.2, 24, null, { pose: 'wave' });
+    E.drawReflection(c, px, py - 10, Game.look, 0, 1, 1.6, 0.2, 26, null);
+    c.restore();
     E.drawCharacter(c, px - 110, py - 8, cast[0], 0, 1, 1.2, (t % 260) < 8, 0, { pose: 'pose', t: t });
     E.drawCharacter(c, px + 110, py - 8, cast[1], 0, -1, 1.2, (t % 240) < 8, 0, { pose: 'wave', t: t });
     E.drawCharacter(c, px, py - 10, Game.look, 0, 1, 1.6, (t % 220) < 8, hop, { t: t });
@@ -336,21 +365,37 @@
     c.strokeText(T('title'), TITLE_CX, 118 + bob);
     c.fillStyle = PAL.ink;
     c.fillText(T('title'), TITLE_CX, 118 + bob);
-    fitFont(c, T('title2'), 360, 56, 'bold', 28);
-    c.fillStyle = 'rgba(74, 42, 64, 0.25)';
-    c.fillText(T('title2'), TITLE_CX + 3, 172 + bob + 6);
+    fitFont(c, T('title2'), 360, 60, 'bold', 28);
+    var ty = 172 + bob;
+    /* soft contact shadow under the block */
+    c.fillStyle = 'rgba(74, 42, 64, 0.22)';
+    c.fillText(T('title2'), TITLE_CX + 4, ty + 12);
+    /* cream rim around the whole extruded block */
     c.strokeStyle = PAL.cream;
-    c.lineWidth = 11;
-    c.strokeText(T('title2'), TITLE_CX, 172 + bob);
+    c.lineWidth = 12;
+    var ex;
+    for (ex = 7; ex >= 0; ex--) c.strokeText(T('title2'), TITLE_CX, ty + ex);
+    /* the extrusion: wine sides stepping down, lit a touch toward the face */
+    for (ex = 7; ex >= 1; ex--) {
+      c.fillStyle = ex > 4 ? '#7d1f52' : '#9a2a68';
+      c.fillText(T('title2'), TITLE_CX, ty + ex);
+    }
     c.strokeStyle = PAL.gold;
     c.lineWidth = 4;
-    c.strokeText(T('title2'), TITLE_CX, 172 + bob);
-    var tg = c.createLinearGradient(0, 146 + bob, 0, 198 + bob);
-    tg.addColorStop(0, '#ff9ccd');
+    c.strokeText(T('title2'), TITLE_CX, ty);
+    var tg = c.createLinearGradient(0, ty - 28, 0, ty + 26);
+    tg.addColorStop(0, '#ffb3dc');
+    tg.addColorStop(0.45, '#ff6fb0');
     tg.addColorStop(0.5, PAL.pinkDeep);
-    tg.addColorStop(1, '#b8347a');
+    tg.addColorStop(1, '#c23a82');
     c.fillStyle = tg;
-    c.fillText(T('title2'), TITLE_CX, 172 + bob);
+    c.fillText(T('title2'), TITLE_CX, ty);
+    /* a glossy upper half on the face of the letters */
+    c.save();
+    c.beginPath(); c.rect(TITLE_CX - 260, ty - 40, 520, 36); c.clip();
+    c.fillStyle = 'rgba(255,255,255,0.22)';
+    c.fillText(T('title2'), TITLE_CX, ty);
+    c.restore();
     /* a gleam sweeping across the letters every few seconds */
     c.save();
     c.globalCompositeOperation = 'lighter';
@@ -654,10 +699,41 @@
     c.beginPath(); c.moveTo(pcx - 50, pgy - 30); c.lineTo(pcx + 30, pgy - 200); c.stroke();
     c.restore();
     c.beginPath(); c.ellipse(pcx, pgy - 112, 78, 120, 0, 0, Math.PI * 2); E.ink(c, 2);
-    for (var gi = 0; gi < 10; gi++) {
-      var ga = gi * Math.PI / 5;
-      E.fillEllipse(c, pcx + Math.cos(ga) * 83, pgy - 112 + Math.sin(ga) * 125, 3, 3, gi % 2 ? PAL.pink : '#ffffff', false);
+    /* vanity bulbs round the frame, each with a warm halo, twinkling in turn */
+    for (var gi = 0; gi < 14; gi++) {
+      var ga = gi * Math.PI / 7;
+      var bx = pcx + Math.cos(ga) * 85, by = pgy - 112 + Math.sin(ga) * 127;
+      var on = 0.7 + Math.sin(t / 10 + gi * 0.9) * 0.3;
+      c.save();
+      c.globalCompositeOperation = 'lighter';
+      var bg2 = c.createRadialGradient(bx, by, 1, bx, by, 16);
+      bg2.addColorStop(0, 'rgba(255, 236, 190, ' + (0.55 * on) + ')');
+      bg2.addColorStop(1, 'rgba(255, 236, 190, 0)');
+      c.fillStyle = bg2;
+      c.fillRect(bx - 16, by - 16, 32, 32);
+      c.restore();
+      E.fillEllipse(c, bx, by, 4.2, 4.2, PAL.gold, false);
+      E.fillEllipse(c, bx, by, 3, 3, on > 0.85 ? '#fffbe6' : '#ffe9a8', false);
+      E.fillEllipse(c, bx - 1, by - 1.2, 1, 0.8, '#ffffff', false);
     }
+    /* a turntable under her feet, slowly spinning */
+    var ty2 = pcy + 2;
+    E.softShadow(c, pcx, ty2 + 8, 80, 16, 0.22);
+    E.fillEllipse(c, pcx, ty2 + 6, 76, 15, E.shade(PAL.pinkDeep, -18));
+    E.fillEllipse(c, pcx, ty2, 76, 15, PAL.pink);
+    E.fillEllipse(c, pcx, ty2, 64, 11, '#ffd1e4', false);
+    c.save();
+    c.beginPath(); c.ellipse(pcx, ty2, 64, 11, 0, 0, Math.PI * 2); c.clip();
+    c.globalAlpha = 0.5;
+    c.strokeStyle = '#ffffff'; c.lineWidth = 3;
+    var spin = t / 80;
+    for (var sp2 = 0; sp2 < 3; sp2++) {
+      var sa = spin + sp2 * 2.09;
+      c.beginPath(); c.moveTo(pcx, ty2); c.lineTo(pcx + Math.cos(sa) * 70, ty2 + Math.sin(sa) * 12); c.stroke();
+    }
+    c.restore();
+    c.beginPath(); c.ellipse(pcx, ty2, 76, 15, 0, 0, Math.PI * 2);
+    c.strokeStyle = PAL.gold; c.lineWidth = 2.5; c.stroke();
     /* spotlights from the top corners */
     c.save();
     c.globalCompositeOperation = 'lighter';
@@ -681,8 +757,12 @@
     c.fillRect(PX, PY, PW, PH);
     var cycle = Math.floor(t / 150) % 2;
     var walkFrame = Math.floor(t / 9) % 4 + 1;
-    E.drawReflection(c, pcx, pcy, look, walkFrame, cycle ? -1 : 1, 3.2, 0.18, PY + PH - pcy - 4, 'rgba(233,184,201,1)');
-    E.softShadow(c, pcx, pcy, 62, 11, 0.26);
+    /* her reflection lives on the glossy disc of the turntable */
+    c.save();
+    c.beginPath(); c.ellipse(pcx, pcy + 2, 64, 11, 0, 0, Math.PI * 2); c.clip();
+    E.drawReflection(c, pcx, pcy, look, walkFrame, cycle ? -1 : 1, 3.2, 0.26, 16, null);
+    c.restore();
+    E.softShadow(c, pcx, pcy + 1, 54, 9, 0.3);
     E.drawCharacter(c, pcx, pcy, look, walkFrame, cycle ? -1 : 1, 3.2, (t % 190) < 8, 0, { t: t });
     if (ward.flash > 0) {
       ward.flash--;
@@ -705,9 +785,33 @@
         var vid = st.variants[v];
         sel = look[st.field] === vid;
         var hot = !sel && pointerOver(c, r.x, r.y, r.w, r.h);
+        if (sel) {
+          /* a warm glow behind the chosen tile */
+          c.save();
+          var glow = c.createRadialGradient(r.x + r.w / 2, r.y + r.h / 2, 10, r.x + r.w / 2, r.y + r.h / 2, r.w * 0.85);
+          glow.addColorStop(0, 'rgba(255, 210, 74, 0.55)');
+          glow.addColorStop(1, 'rgba(255, 210, 74, 0)');
+          c.fillStyle = glow;
+          c.fillRect(r.x - 30, r.y - 30, r.w + 60, r.h + 60);
+          c.restore();
+        }
+        c.fillStyle = 'rgba(74, 42, 64, 0.16)';
+        E.roundRect(c, r.x, r.y + 3, r.w, r.h, 10);
+        c.fill();
         c.fillStyle = sel ? PAL.sun : (hot ? '#ffffff' : 'rgba(255,246,236,0.92)');
         E.roundRect(c, r.x, r.y, r.w, r.h, 10);
         c.fill();
+        c.save();
+        E.roundRect(c, r.x, r.y, r.w, r.h, 10); c.clip();
+        var tg2 = c.createLinearGradient(0, r.y, 0, r.y + r.h);
+        tg2.addColorStop(0, 'rgba(255,255,255,0.5)');
+        tg2.addColorStop(0.3, 'rgba(255,255,255,0)');
+        tg2.addColorStop(1, 'rgba(226,85,154,0.07)');
+        c.fillStyle = tg2;
+        c.fillRect(r.x, r.y, r.w, r.h);
+        c.restore();
+        c.fillStyle = sel ? PAL.sun : 'rgba(255,246,236,1)';
+        E.roundRect(c, r.x, r.y, r.w, r.h, 10);
         E.ink(c, sel ? 3 : 1.8);
         var tileLook = cloneLook(look);
         tileLook[st.field] = vid;
