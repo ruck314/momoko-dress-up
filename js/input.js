@@ -124,7 +124,9 @@
       if (e.code === 'Escape') { kb.pause = false; return; }
       heldCodes[e.code] = false;
       keyCapture(false, e.code);
-      return;
+      /* fall through: the key may have gone down before the capture
+         started (Space opening a station's puzzle), so release it here
+         too or it stays held after the puzzle closes */
     }
     switch (e.code) {
       case 'ArrowLeft': case 'KeyA': kb.left = false; break;

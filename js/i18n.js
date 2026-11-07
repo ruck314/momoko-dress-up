@@ -62,7 +62,7 @@
       wardDone: 'All Done',
       wardColour: 'Colour',
       wardAlready: 'You already have that on!',
-      wardHint: 'Tap something to try it on!',
+      wardHint: 'Tap anything to put it on!',
       wardSkinHint: 'Pick a skin tone.',
 
       /* ---- Variants ---- */
@@ -94,7 +94,7 @@
       acc_scarf: 'Scarf', acc_wings: 'Fairy Wings', acc_wand: 'Magic Wand', acc_bowTie: 'Bow Tie',
 
       /* ---- Puzzle gate ---- */
-      gateTitle: 'Solve it to try it on!',
+      gateTitle: 'Solve it to come in!',
       gateRunwayTitle: 'Strike a pose... and solve!',
       gateTries: 'Tries left',
       gateMathPrompt: 'What is the answer?',
@@ -221,7 +221,7 @@
       acc_scarf: 'マフラー', acc_wings: 'ようせいの はね', acc_wand: 'まほうの つえ', acc_bowTie: 'ちょうネクタイ',
 
       /* ---- Puzzle gate ---- */
-      gateTitle: 'クイズに こたえて みにつけよう！',
+      gateTitle: 'クイズに こたえて はいろう！',
       gateRunwayTitle: 'ポーズを きめて… クイズ！',
       gateTries: 'のこり',
       gateMathPrompt: 'こたえは？',

@@ -401,14 +401,36 @@
     var dpr = Math.min(3, window.devicePixelRatio || 1);
     var s = rect.width / (canvas.width / dpr);
     var gx = Game.TOUCH_LEFT_W || 0, gy = Game.GAME_Y || 0;
-    var r = KB.answer;
-    field.style.left = Math.round(rect.left + (gx + r.x) * s) + 'px';
-    field.style.top = Math.round(rect.top + (gy + r.y) * s) + 'px';
-    field.style.width = Math.round(r.w * s) + 'px';
-    field.style.height = Math.round(r.h * s) + 'px';
-    field.style.fontSize = Math.max(16, Math.round(28 * s)) + 'px';
-    field.style.borderRadius = Math.round(10 * s) + 'px';
-    field.style.borderWidth = Math.max(1, Math.round(2 * s)) + 'px';
+    var r = kbLayout().answer;
+    /* Only touch the style when something moved: Safari may abort an
+       IME composition when the focused field's geometry is rewritten. */
+    setStyle('left', Math.round(rect.left + (gx + r.x) * s) + 'px');
+    setStyle('top', Math.round(rect.top + (gy + r.y) * s) + 'px');
+    setStyle('width', Math.round(r.w * s) + 'px');
+    setStyle('height', Math.round(r.h * s) + 'px');
+    setStyle('fontSize', Math.max(16, Math.round(28 * s)) + 'px');
+    setStyle('borderRadius', Math.round(10 * s) + 'px');
+    setStyle('borderWidth', Math.max(1, Math.round(2 * s)) + 'px');
+  }
+  function setStyle(prop, val) {
+    if (field.style[prop] !== val) field.style[prop] = val;
+  }
+  /* The helper keys beside the field: they edit the field's own value
+     (resolving any half-typed romaji first) and hand focus straight
+     back so the device keyboard stays up. */
+  function fieldEdit(op) {
+    if (gate.phase !== 'ask') return;
+    var f = ensureField();
+    var v = toHiragana(f.value, true);
+    if (op === 'back') v = v.slice(0, -1);
+    else if (op === 'n') v += 'ん';
+    else if (op === 'long') v += 'ー';
+    else v = applyModifier(v, op);
+    composing = false;
+    f.value = v;
+    sanitizeField();
+    Game.audio.play('tap');
+    try { f.focus({ preventScroll: true }); } catch (err) { f.focus(); }
   }
   function commitField() {
     if (!field || !fieldShown) return;
@@ -587,17 +609,30 @@
     modeSwitch: { x: 36, y: 318, w: 236, h: 34 },
     cancel: { x: 36, y: 398, w: 110, h: 36 },
   };
-  /* Keyboard mode: a short card hugging the top of the screen, so the
-     tablet's on-screen keyboard (the lower half) leaves it in view. */
-  var KB = {
-    panel: { x: 90, y: 18, w: 620, h: 236 },
-    card: { x: 110, y: 80, w: 180, h: 112 },
-    answer: { x: 316, y: 84, w: 370, h: 58 },
-    modeSwitch: { x: 110, y: 212, w: 180, h: 30 },
-    ok: { x: 540, y: 176, w: 146, h: 48 },
-    cancel: { x: 316, y: 182, w: 110, h: 36 },
-  };
-  function kanjiLayout() { return kanaMode() === 'keyboard' ? KB : KANJI; }
+  /* Keyboard mode: a short card pinned to the top of the *canvas* (on a
+     tablet the game window sits well below the canvas top), so the
+     device's on-screen keyboard, which takes the lower half of the
+     screen, never covers the kanji. Beside the text field sit the kana
+     the device IME makes awkward: ん, the small forms, ゛ ゜ and ー. */
+  var KB_HELP = ['n', 'small', 'daku', 'handaku', 'long', 'back'];
+  var KB_HELP_LABELS = ['ん', '小', '゛', '゜', 'ー', '⌫'];
+  function kbLayout() {
+    var top = (Game.ui && Game.ui.VIEW ? Game.ui.VIEW.y : 0) + 12;
+    var L = {
+      kb: true,
+      panel: { x: 90, y: top, w: 620, h: 206 },
+      card: { x: 106, y: top + 58, w: 176, h: 100 },
+      answer: { x: 298, y: top + 58, w: 296, h: 54 },
+      ok: { x: 604, y: top + 58, w: 92, h: 54 },
+      cancel: { x: 604, y: top + 122, w: 92, h: 38 },
+      modeSwitch: { x: 106, y: top + 166, w: 176, h: 28 },
+      hintY: top + 186,
+      help: [],
+    };
+    for (var i = 0; i < KB_HELP.length; i++) L.help.push({ x: 298 + i * 50, y: top + 120, w: 44, h: 42 });
+    return L;
+  }
+  function kanjiLayout() { return kanaMode() === 'keyboard' ? kbLayout() : KANJI; }
 
   function mathKeyRect(i) {
     /* 1 2 3 / 4 5 6 / 7 8 9 / ⌫ 0 ✓ */
@@ -666,7 +701,7 @@
       drawHeart(c, hx, hy, 8, h < triesLeft() ? PAL.coral : 'rgba(74,42,64,0.18)');
     }
 
-    if (isMath) drawMath(c); else if (L === KB) drawKanjiKeyboard(c); else drawKanji(c);
+    if (isMath) drawMath(c); else if (L.kb) drawKanjiKeyboard(c, L); else drawKanji(c);
 
     /* phase overlays */
     if (gate.phase === 'right') {
@@ -730,7 +765,7 @@
     c.font = 'bold 16px ' + U.FONT;
     var bw = c.measureText(text).width + 40;
     var bx = P.x + (P.w - bw) / 2, by = P.y + P.h - 44;
-    if (gate.problem.kind === 'kanji') by = P.y + P.h - 30;
+    if (gate.problem.kind === 'kanji') by = kanaMode() === 'keyboard' ? P.y + P.h - 20 : P.y + P.h - 30;
     E.fillRound(c, bx, by - 14, bw, 30, 15, fill);
     c.fillStyle = '#fff';
     c.textAlign = 'center';
@@ -851,9 +886,9 @@
     }
   }
 
-  function drawKanjiKeyboard(c) {
+  function drawKanjiKeyboard(c, L) {
     var U = Game.ui, PAL = Game.PAL, T = Game.i18n.t, E = Game.entities;
-    var K = KB.card;
+    var K = L.card;
     /* the word, big, on a soft card */
     E.fillRound(c, K.x, K.y, K.w, K.h, 14, '#fff');
     if (gate.icon) { E.fillEllipse(c, K.x + K.w - 2, K.y + 2, 28, 28, '#ffffff'); gate.icon(c, K.x + K.w - 2, K.y + 2, 0.66); }
@@ -861,14 +896,11 @@
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     var txt = gate.problem.text;
-    U.fitFont(c, txt, K.w - 24, txt.length <= 1 ? 76 : txt.length <= 3 ? 52 : 40, 'bold', 22);
+    U.fitFont(c, txt, K.w - 24, txt.length <= 1 ? 72 : txt.length <= 3 ? 50 : 38, 'bold', 22);
     c.fillText(txt, K.x + K.w / 2, K.y + K.h / 2 + 2);
-    c.font = 'bold 12px ' + U.FONT;
-    c.fillStyle = 'rgba(74,42,64,0.75)';
-    c.fillText(T('gateKanjiPrompt'), K.x + K.w / 2, K.y + K.h + 12);
     /* the answer box is the real text field; only paint it ourselves
        while the field is hidden (result flashes) */
-    var A = KB.answer;
+    var A = L.answer;
     if (fieldShown) {
       c.fillStyle = 'rgba(74,42,64,0.28)';
       E.roundRect(c, A.x, A.y + 3, A.w, A.h, 10); c.fill();
@@ -876,13 +908,19 @@
       answerBox(c, A, gate.input, false);
       E.roundRect(c, A.x, A.y, A.w, A.h, 10); E.ink(c, 2);
     }
-    c.font = '12px ' + U.FONT;
-    c.fillStyle = 'rgba(74,42,64,0.6)';
-    c.textAlign = 'left';
-    c.textBaseline = 'middle';
-    c.fillText(T('inputKeyboardHint'), A.x + 4, A.y + A.h + 14);
-    keyButton(c, KB.ok, 'OK', 'ok');
-    drawModeSwitch(c, KB.modeSwitch);
+    for (var i = 0; i < L.help.length; i++) {
+      var op = KB_HELP[i];
+      keyButton(c, L.help[i], KB_HELP_LABELS[i], op === 'back' ? 'back' : op === 'n' || op === 'long' ? 'num' : 'mod');
+    }
+    if (gate.phase !== 'wrongFlash') {   /* the "try again" banner takes this line */
+      c.font = '11px ' + U.FONT;
+      c.fillStyle = 'rgba(74,42,64,0.6)';
+      c.textAlign = 'left';
+      c.textBaseline = 'middle';
+      c.fillText(T('inputKeyboardHint'), A.x + 2, L.hintY);
+    }
+    keyButton(c, L.ok, 'OK', 'ok');
+    drawModeSwitch(c, L.modeSwitch);
   }
 
   /* ================================================================
@@ -912,8 +950,9 @@
       }
       return true;
     }
-    if (!isMath && L === KB) {
-      if (U.hit(KB.ok, mx, my)) submit();
+    if (!isMath && L.kb) {
+      if (U.hit(L.ok, mx, my)) submit();
+      for (i = 0; i < L.help.length; i++) if (U.hit(L.help[i], mx, my)) { fieldEdit(KB_HELP[i]); break; }
       return true;
     }
     if (isMath) {

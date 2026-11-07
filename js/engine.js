@@ -13,7 +13,7 @@
   var GAME_X = 0, GAME_Y = 0;
 
   /* Bump alongside CACHE_NAME in sw.js and tag the matching git release. */
-  Game.VERSION = 'v1.2.0';
+  Game.VERSION = 'v1.3.0';
 
   var canvas, ctx;
 
@@ -100,6 +100,7 @@
       ['look', 'progress', 'flags'].forEach(function (n) { localStorage.removeItem(KEY(n)); });
     } catch (e) { /* ignore */ }
     freshState();
+    unlockedStation = null;
     Game.settings.lang = lang;
     Game.settings.muted = muted;
     Game.settings.kanaInput = kanaInput;
@@ -183,10 +184,38 @@
     if (Game.audio.currentMusic() !== 'studio') Game.audio.startMusic('studio');
   }
 
-  function openStation(id) {
+  /* One puzzle buys the way into a station; inside it she can change
+     as much as she likes. The pass holds until she enters a different
+     station, so stepping out and straight back in asks nothing. */
+  var unlockedStation = null;
+
+  function stationById(id) {
+    for (var i = 0; i < Game.STATIONS.length; i++) if (Game.STATIONS[i].id === id) return Game.STATIONS[i];
+    return null;
+  }
+
+  function enterWardrobe(id) {
     Game.ui.openWardrobe(id);
     state = State.WARDROBE;
     Game.audio.play('select');
+  }
+
+  function openStation(id) {
+    if (unlockedStation === id) { enterWardrobe(id); return; }
+    var st = stationById(id);
+    if (!st) return;
+    Game.audio.play('select');
+    Game.gate.open({
+      mode: 'studio',
+      icon: function (c, cx, cy, s) {
+        E.drawLookTile(c, cx, cy, 72 * (s || 1), Game.look, st.id, { round: true });
+      },
+      onResolve: function (res) {
+        if (!res.ok) return;
+        unlockedStation = id;
+        enterWardrobe(id);
+      },
+    });
   }
 
   function enterRunway() {
@@ -271,7 +300,9 @@
     var fullBleed = bezel && (
       state === State.TITLE || state === State.INTRO ||
       state === State.WARDROBE || state === State.RUNWAY);
-    var dimAll = bezel && state === State.PAUSED;
+    /* the station puzzle opens over the studio: widen the view so its
+       scrim and its keyboard-mode card can use the whole canvas */
+    var dimAll = bezel && (state === State.PAUSED || (state === State.PLAYING && Game.gate.isOpen()));
     if (bezel && !fullBleed) {
       Game.input.drawTouchStrip(ctx, showTouchButtons());
     }
@@ -294,7 +325,7 @@
     switch (state) {
       case State.TITLE: Game.ui.drawTitleScreen(ctx); break;
       case State.INTRO: Game.ui.drawIntroScreen(ctx); break;
-      case State.PLAYING: drawWorld(ctx); break;
+      case State.PLAYING: if (dimAll) drawClipped(function () { drawWorld(ctx); }); else drawWorld(ctx); break;
       case State.PAUSED: drawClipped(function () { drawWorld(ctx); }); Game.ui.drawPauseMenu(ctx); break;
       case State.WARDROBE: Game.ui.drawWardrobe(ctx); break;
       case State.RUNWAY: Game.runway.draw(ctx); break;
@@ -529,6 +560,7 @@
     _setState: function (s) { state = s; },
     _teleport: function (x) { player.x = x; },
     _openStation: openStation,
+    _enterWardrobe: enterWardrobe,
     _enterRunway: enterRunway,
     _forceRender: render,
     _step: function (n) { for (var i = 0; i < (n || 1); i++) update(); },

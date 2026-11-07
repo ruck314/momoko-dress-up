@@ -538,7 +538,7 @@
     swatchY: 300, swatchSize: 46, swatchGap: 8,
     done: { x: 632, y: 412, w: 152, h: 46 },
   };
-  var ward = { station: null, pending: null, particles: [], flash: 0 };
+  var ward = { station: null, particles: [], flash: 0 };
 
   function wardCell(i) {
     var col = i % WARD.cols, row = Math.floor(i / WARD.cols);
@@ -567,14 +567,15 @@
 
   function openWardrobe(stationId) {
     ward.station = getStation(stationId);
-    ward.pending = null;
     ward.particles = [];
     ward.flash = 0;
   }
 
   function cloneLook(l) { return JSON.parse(JSON.stringify(l)); }
 
-  function attemptChange(field, value) {
+  /* The puzzle was paid at the station door, so a tap simply puts the
+     thing on. */
+  function applyChange(field, value) {
     var st = ward.station;
     var look = Game.look;
     if (look[field] === value) {
@@ -582,38 +583,18 @@
       Game.audio.play('deny');
       return;
     }
-    var pendingLook = cloneLook(look);
-    pendingLook[field] = value;
+    look[field] = value;
     /* A colour picked while nothing is worn here also puts on the first
-       real item, otherwise the puzzle would buy an invisible change. */
-    var also = null;
+       real item, otherwise the tap would buy an invisible change. */
     if (field === st.colorField && st.field && look[st.field] === 'none' && st.variants.length > 1) {
-      also = { field: st.field, value: st.variants[1] };
-      pendingLook[also.field] = also.value;
+      look[st.field] = st.variants[1];
     }
-    ward.pending = { field: field, value: value, also: also, look: pendingLook };
-    Game.audio.play('select');
-    Game.gate.open({
-      mode: 'studio',
-      icon: function (c, cx, cy, s) {
-        E.drawLookTile(c, cx, cy, 72 * (s || 1), pendingLook, st.id, { round: true });
-      },
-      onResolve: function (res) {
-        var p = ward.pending;
-        ward.pending = null;
-        if (!p) return;
-        if (res.ok) {
-          Game.look[p.field] = p.value;
-          if (p.also) Game.look[p.also.field] = p.also.value;
-          Game.audio.play('wear');
-          ward.flash = 30;
-          var cx = WARD.previewX + WARD.previewW / 2, cy = WARD.previewY + WARD.previewH - 120;
-          E.spawnBurst(ward.particles, cx, cy, 26, [PAL.sun, PAL.pink, '#ffffff', PAL.mint, PAL.lavender], 4, 'star');
-          E.spawnBurst(ward.particles, cx, cy, 8, [PAL.pink, PAL.coral], 3, 'heart');
-        }
-        if (Game.engine && Game.engine.save) Game.engine.save();
-      },
-    });
+    Game.audio.play('wear');
+    ward.flash = 30;
+    var cx = WARD.previewX + WARD.previewW / 2, cy = WARD.previewY + WARD.previewH - 120;
+    E.spawnBurst(ward.particles, cx, cy, 26, [PAL.sun, PAL.pink, '#ffffff', PAL.mint, PAL.lavender], 4, 'star');
+    E.spawnBurst(ward.particles, cx, cy, 8, [PAL.pink, PAL.coral], 3, 'heart');
+    if (Game.engine && Game.engine.save) Game.engine.save();
   }
 
   function drawWardrobe(c) {
@@ -700,10 +681,9 @@
     c.fillRect(PX, PY, PW, PH);
     var cycle = Math.floor(t / 150) % 2;
     var walkFrame = Math.floor(t / 9) % 4 + 1;
-    var shown = ward.pending ? ward.pending.look : look;
-    E.drawReflection(c, pcx, pcy, shown, walkFrame, cycle ? -1 : 1, 3.2, 0.18, PY + PH - pcy - 4, 'rgba(233,184,201,1)');
+    E.drawReflection(c, pcx, pcy, look, walkFrame, cycle ? -1 : 1, 3.2, 0.18, PY + PH - pcy - 4, 'rgba(233,184,201,1)');
     E.softShadow(c, pcx, pcy, 62, 11, 0.26);
-    E.drawCharacter(c, pcx, pcy, shown, walkFrame, cycle ? -1 : 1, 3.2, (t % 190) < 8, 0, { t: t });
+    E.drawCharacter(c, pcx, pcy, look, walkFrame, cycle ? -1 : 1, 3.2, (t % 190) < 8, 0, { t: t });
     if (ward.flash > 0) {
       ward.flash--;
       c.save(); c.globalAlpha = ward.flash / 30 * 0.6; c.fillStyle = '#ffffff'; c.fillRect(PX, PY, PW, PH); c.restore();
@@ -787,13 +767,13 @@
     var i;
     if (st.variants.length) {
       for (i = 0; i < st.variants.length; i++) {
-        if (hit(wardCell(i), mx, my)) { attemptChange(st.field, st.variants[i]); return null; }
+        if (hit(wardCell(i), mx, my)) { applyChange(st.field, st.variants[i]); return null; }
       }
     }
     if (st.colorField && st.colors) {
       var big = !st.variants.length;
       for (i = 0; i < st.colors.length; i++) {
-        if (hit(wardSwatch(i, st.colors.length, big), mx, my)) { attemptChange(st.colorField, st.colors[i]); return null; }
+        if (hit(wardSwatch(i, st.colors.length, big), mx, my)) { applyChange(st.colorField, st.colors[i]); return null; }
       }
     }
     if (hit(WARD.done, mx, my)) return 'done';

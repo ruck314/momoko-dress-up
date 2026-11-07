@@ -1,11 +1,12 @@
 # Momoko and Friends Dress Up
 
-A sparkly dress-up game with a secret: every outfit change is a little
+A sparkly dress-up game with a secret: every station door is a little
 puzzle. **Momoko** starts show day in nothing but a cream camisole and
 shorts, walks the length of a fashion studio full of stations (a hair
 salon, an eye studio, racks of dresses, jackets, shoes, hats, bags and
-more), and dresses up for the runway. Each thing she tries on costs one
-quick puzzle at the counter. When her look is ready she walks through the
+more), and dresses up for the runway. Getting into a station costs one
+quick puzzle at the door; inside, she can try on as much as she likes.
+When her look is ready she walks through the
 sparkly door at the end of the studio and struts the catwalk against four
 randomly dressed friends.
 
@@ -34,14 +35,19 @@ things:
   the end of second grade (the 80 first-grade and 160 second-grade
   characters), typed in hiragana. By default the device's own keyboard
   pops up (only hiragana is accepted: a kanji candidate snaps back to its
-  reading); a switch under the word swaps in a 50-sound keypad with ゛ ゜
-  小 and ー keys, laid out right-to-left like a printed chart. A bare kanji accepts every on-yomi and kun-yomi (新 → しん, あたら,
+  reading), with ん, 小, ゛, ゜, ー and ⌫ keys beside the text field for
+  the kana an IME makes awkward; a switch under the word swaps in a
+  50-sound keypad with ゛ ゜ 小 and ー keys, laid out right-to-left like a
+  printed chart. A bare kanji accepts every on-yomi and kun-yomi (新 → しん, あたら,
   あたらしい, あらた, にい...); a word with okurigana or a compound wants
   the word's reading (新しい → あたらしい, 新聞 → しんぶん).
 
-**In the studio** every change (a new hairstyle, a colour swatch, taking
-something off) opens the puzzle with three tries. Three misses abort the
-change and show the answer; coming back asks a fresh question.
+**In the studio** stepping up to a station opens the puzzle with three
+tries. Solve it and the station is hers: every hairstyle, colour swatch
+or "nothing" tile inside goes on with a tap, and stepping out and back
+into the same station asks nothing more. Three misses show the answer
+and keep the door shut; trying again, or walking to a different
+station, asks a fresh question.
 
 **On the runway** the five models walk one at a time. The friends think
 their puzzle over in a bubble and pass or miss with a happy or sad sting.
