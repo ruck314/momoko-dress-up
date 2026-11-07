@@ -94,7 +94,13 @@
   function gameOffsetY() { return topStripH(); }
 
   /* ---- Keyboard ---- */
+  function inTextField(e) {
+    var el = e && e.target;
+    return !!(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'));
+  }
+
   function onKeyDown(e) {
+    if (inTextField(e)) return;   /* the puzzle's kana field handles its own keys */
     if (keyCapture) {
       if (e.code === 'Escape') { if (!kb.pause) tapped.pause = true; kb.pause = true; return; }
       if (heldCodes[e.code]) { e.preventDefault(); return; }  /* swallow auto-repeat */
@@ -113,6 +119,7 @@
   }
 
   function onKeyUp(e) {
+    if (inTextField(e)) return;
     if (keyCapture) {
       if (e.code === 'Escape') { kb.pause = false; return; }
       heldCodes[e.code] = false;

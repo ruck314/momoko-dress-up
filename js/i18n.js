@@ -105,6 +105,10 @@
       gateAbort: 'Maybe next time!',
       gateCancel: 'Cancel',
       gateOk: 'OK',
+      inputKeyboard: 'Keyboard',
+      inputKeypad: 'Kana Pad',
+      inputKeyboardHint: 'Type the reading in hiragana, then press OK.',
+      inputTapHere: 'Tap here to type',
 
       /* ---- Runway ---- */
       runwayTitle: 'Fashion Show!',
@@ -228,6 +232,10 @@
       gateAbort: 'また こんどね！',
       gateCancel: 'やめる',
       gateOk: 'OK',
+      inputKeyboard: 'キーボード',
+      inputKeypad: '50おんひょう',
+      inputKeyboardHint: 'ひらがなで うって OK をおしてね（かんじに しなくていいよ）',
+      inputTapHere: 'ここを タップして かいてね',
 
       /* ---- Runway ---- */
       runwayTitle: 'ファッションショー！',

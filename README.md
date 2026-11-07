@@ -21,19 +21,21 @@ visit (PWA). Live at <https://ruck314.github.io/momoko-dress-up/>.
 | Walk                     | Arrow Keys / WASD | D-Pad (left)   |
 | Open a station / runway  | Space / Z         | DO Button      |
 | Pause / close            | Escape / P        | Pause Button   |
-| Answer a puzzle          | Digits, Enter, Backspace (romaji typing in Japanese) | On-screen keypad |
+| Answer a puzzle          | Digits, Enter, Backspace (romaji or your IME in Japanese) | Number pad; in Japanese the device keyboard (default) or a 50-sound keypad |
 
 ## The puzzles
 
 The language picker chooses the puzzle, so the same game teaches two
 things:
 
-- **English: arithmetic.** Times tables from 1 to 9, and three-digit
-  addition and subtraction whose answers stay between 0 and 999.
+- **English: multiplication.** The times tables from 1 to 9, starting
+  with the 1, 2 and 5 tables and working up to the 6-9 corner.
 - **Japanese: kanji.** Readings of the 240 kyōiku kanji a child knows by
   the end of second grade (the 80 first-grade and 160 second-grade
-  characters), typed in hiragana on a 50-sound keypad with ゛ ゜ 小 and ー
-  keys. A bare kanji accepts every on-yomi and kun-yomi (新 → しん, あたら,
+  characters), typed in hiragana. By default the device's own keyboard
+  pops up (only hiragana is accepted: a kanji candidate snaps back to its
+  reading); a switch under the word swaps in a 50-sound keypad with ゛ ゜
+  小 and ー keys, laid out right-to-left like a printed chart. A bare kanji accepts every on-yomi and kun-yomi (新 → しん, あたら,
   あたらしい, あらた, にい...); a word with okurigana or a compound wants
   the word's reading (新しい → あたらしい, 新聞 → しんぶん).
 

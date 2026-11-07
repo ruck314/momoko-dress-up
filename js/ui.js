@@ -63,11 +63,23 @@
     c.fillStyle = fill;
     E.roundRect(c, b.x, b.y + oy, b.w, b.h, r);
     c.fill();
+    /* vertical body gradient: lit top, shaded base */
+    c.save();
+    E.roundRect(c, b.x, b.y + oy, b.w, b.h, r);
+    c.clip();
+    var bg = c.createLinearGradient(0, b.y + oy, 0, b.y + oy + b.h);
+    bg.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+    bg.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+    bg.addColorStop(1, 'rgba(74, 42, 64, 0.14)');
+    c.fillStyle = bg;
+    c.fillRect(b.x, b.y + oy, b.w, b.h);
+    c.restore();
     if (hot) {
+      E.roundRect(c, b.x, b.y + oy, b.w, b.h, r);
       c.fillStyle = 'rgba(255, 255, 255, 0.28)';
       c.fill();
     }
-    c.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    c.fillStyle = 'rgba(255, 255, 255, 0.38)';
     E.roundRect(c, b.x + 3, b.y + oy + 2, b.w - 6, b.h * 0.42, Math.max(2, r - 3));
     c.fill();
     E.roundRect(c, b.x, b.y + oy, b.w, b.h, r);
@@ -112,10 +124,25 @@
 
   function panel(c, x, y, w, h, fill, alpha) {
     c.save();
+    /* two-step drop shadow: a tight dark one and a wide soft one */
+    c.fillStyle = 'rgba(43, 21, 48, 0.1)';
+    E.roundRect(c, x - 4, y + 2, w + 8, h + 10, 16); c.fill();
+    c.fillStyle = 'rgba(43, 21, 48, 0.22)';
+    E.roundRect(c, x, y + 4, w, h, 12); c.fill();
     if (alpha !== undefined) c.globalAlpha = alpha;
     c.fillStyle = fill || 'rgba(255, 246, 236, 0.94)';
     E.roundRect(c, x, y, w, h, 12);
     c.fill();
+    /* a cool sheen at the top edge and a warm shade at the bottom */
+    E.roundRect(c, x, y, w, h, 12);
+    c.clip();
+    var g = c.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+    g.addColorStop(0.18, 'rgba(255, 255, 255, 0)');
+    g.addColorStop(0.85, 'rgba(226, 85, 154, 0)');
+    g.addColorStop(1, 'rgba(226, 85, 154, 0.08)');
+    c.fillStyle = g;
+    c.fillRect(x, y, w, h);
     c.restore();
     E.roundRect(c, x, y, w, h, 12);
     E.ink(c, 2);
@@ -248,6 +275,15 @@
 
     /* a little star podium with Momoko and two friends */
     var px = 190, py = TITLE_GROUND + 30;
+    /* a spotlight cone from the ceiling down onto the podium */
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    var cone = c.createLinearGradient(0, 0, 0, py);
+    cone.addColorStop(0, 'rgba(255, 244, 214, 0.16)');
+    cone.addColorStop(1, 'rgba(255, 244, 214, 0.03)');
+    c.fillStyle = cone;
+    c.beginPath(); c.moveTo(px - 26, -10); c.lineTo(px + 26, -10); c.lineTo(px + 150, py); c.lineTo(px - 150, py); c.closePath(); c.fill();
+    c.restore();
     E.fillEllipse(c, px, py + 2, 150, 20, PAL.pinkDeep);
     E.fillEllipse(c, px, py - 4, 150, 20, PAL.pink);
     c.fillStyle = PAL.sun;
@@ -284,6 +320,13 @@
     /* Title */
     var bob = Math.sin(t / 40) * 3;
     c.save();
+    /* a soft pink halo so the lettering floats off the wallpaper */
+    var halo = c.createRadialGradient(TITLE_CX, 160 + bob, 20, TITLE_CX, 160 + bob, 260);
+    halo.addColorStop(0, 'rgba(255, 255, 255, 0.75)');
+    halo.addColorStop(0.5, 'rgba(255, 230, 242, 0.45)');
+    halo.addColorStop(1, 'rgba(255, 230, 242, 0)');
+    c.fillStyle = halo;
+    c.fillRect(TITLE_CX - 270, 0, 540, 300);
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.lineJoin = 'round';
@@ -294,13 +337,31 @@
     c.fillStyle = PAL.ink;
     c.fillText(T('title'), TITLE_CX, 118 + bob);
     fitFont(c, T('title2'), 360, 56, 'bold', 28);
-    c.fillStyle = 'rgba(74, 42, 64, 0.22)';
-    c.fillText(T('title2'), TITLE_CX + 2, 172 + bob + 4);
+    c.fillStyle = 'rgba(74, 42, 64, 0.25)';
+    c.fillText(T('title2'), TITLE_CX + 3, 172 + bob + 6);
     c.strokeStyle = PAL.cream;
-    c.lineWidth = 9;
+    c.lineWidth = 11;
     c.strokeText(T('title2'), TITLE_CX, 172 + bob);
-    c.fillStyle = PAL.pinkDeep;
+    c.strokeStyle = PAL.gold;
+    c.lineWidth = 4;
+    c.strokeText(T('title2'), TITLE_CX, 172 + bob);
+    var tg = c.createLinearGradient(0, 146 + bob, 0, 198 + bob);
+    tg.addColorStop(0, '#ff9ccd');
+    tg.addColorStop(0.5, PAL.pinkDeep);
+    tg.addColorStop(1, '#b8347a');
+    c.fillStyle = tg;
     c.fillText(T('title2'), TITLE_CX, 172 + bob);
+    /* a gleam sweeping across the letters every few seconds */
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    var sweep = ((t % 260) / 260) * 520 - 260;
+    var sg = c.createLinearGradient(TITLE_CX + sweep - 40, 0, TITLE_CX + sweep + 40, 0);
+    sg.addColorStop(0, 'rgba(255,255,255,0)');
+    sg.addColorStop(0.5, 'rgba(255,255,255,0.55)');
+    sg.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = sg;
+    c.fillText(T('title2'), TITLE_CX, 172 + bob);
+    c.restore();
     c.font = 'bold 15px ' + FONT;
     var sw = c.measureText(T('titleSubtitle')).width + 30;
     c.fillStyle = 'rgba(255, 246, 236, 0.9)';
@@ -640,9 +701,9 @@
     var cycle = Math.floor(t / 150) % 2;
     var walkFrame = Math.floor(t / 9) % 4 + 1;
     var shown = ward.pending ? ward.pending.look : look;
-    E.drawReflection(c, pcx, pcy, shown, walkFrame, cycle ? -1 : 1, 2.75, 0.18, PY + PH - pcy - 4, 'rgba(233,184,201,1)');
-    E.softShadow(c, pcx, pcy, 54, 10, 0.26);
-    E.drawCharacter(c, pcx, pcy, shown, walkFrame, cycle ? -1 : 1, 2.75, (t % 190) < 8, 0, { t: t });
+    E.drawReflection(c, pcx, pcy, shown, walkFrame, cycle ? -1 : 1, 3.2, 0.18, PY + PH - pcy - 4, 'rgba(233,184,201,1)');
+    E.softShadow(c, pcx, pcy, 62, 11, 0.26);
+    E.drawCharacter(c, pcx, pcy, shown, walkFrame, cycle ? -1 : 1, 3.2, (t % 190) < 8, 0, { t: t });
     if (ward.flash > 0) {
       ward.flash--;
       c.save(); c.globalAlpha = ward.flash / 30 * 0.6; c.fillStyle = '#ffffff'; c.fillRect(PX, PY, PW, PH); c.restore();

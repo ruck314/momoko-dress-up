@@ -26,6 +26,14 @@ html, body {
   background: #2b1530;
 }
 
+/* The kana text field the puzzle floats over its answer box
+   (created by js/mathgate.js in keyboard mode). */
+#kana-field::placeholder {
+  color: rgba(74, 42, 64, 0.38);
+  font-weight: 400;
+  font-size: 0.6em;
+}
+
 #game-center-link {
   position: fixed;
   top: 8px;

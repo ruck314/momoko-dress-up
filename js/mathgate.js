@@ -1,9 +1,10 @@
 /* mathgate.js – the puzzle every wardrobe change (and the runway pose)
    has to pass.
  *
- * In English the puzzle is arithmetic: times tables 1-9 and three-digit
- * addition / subtraction with answers from 0 to 999. In Japanese it is a
- * kanji reading from the grade 1-2 list in kanji.js, typed in hiragana.
+ * In English the puzzle is multiplication: the times tables from 1 to 9.
+ * In Japanese it is a kanji reading from the grade 1-2 list in kanji.js,
+ * typed in hiragana, either on the device's own keyboard (a real text
+ * field floats over the answer box) or on a 50-sound keypad.
  *
  * Each puzzle type keeps its own skill level (0..4) in Game.progress.
  * First-try answers nudge it up, misses pull it down, so the questions
@@ -64,41 +65,21 @@
   }
 
   /* ================================================================
-     Arithmetic
+     Multiplication (the kuku, 1x1 .. 9x9)
      ================================================================ */
-  function digits(n) { return [Math.floor(n / 100) % 10, Math.floor(n / 10) % 10, n % 10]; }
-  function carries(a, b) {
-    var da = digits(a), db = digits(b), c = 0, n = 0;
-    for (var i = 2; i >= 0; i--) {
-      var s = da[i] + db[i] + c;
-      c = s >= 10 ? 1 : 0;
-      n += c;
-    }
-    return n;
-  }
-  function borrows(a, b) {
-    var da = digits(a), db = digits(b), br = 0, n = 0;
-    for (var i = 2; i >= 0; i--) {
-      var d = da[i] - db[i] - br;
-      br = d < 0 ? 1 : 0;
-      n += br;
-    }
-    return n;
-  }
-
   /* Difficulty ladder, pitched at the start of 2nd grade and climbing
      to the end of it:
-       0  add / subtract within 100, no regrouping; ×1 and ×2
-       1  within 100 with regrouping; 3-digit + 2-digit, no carry; ×2–5
-       2  3-digit ± 3-digit, at most one carry / borrow; ×2–6
-       3  two carries / borrows; ×3–9
-       4  borrowing across a zero, answers up to 999; ×6–9 */
+       0  the 1, 2 and 5 times tables, up to x5
+       1  the 2-5 times tables, up to x9
+       2  2-7 times 2-9
+       3  3-9 times 3-9
+       4  the hard corner: 6-9 times 6-9 */
   function makeMult(level) {
     var a, b;
     switch (level) {
-      case 0: a = range(1, 2); b = range(1, 5); break;
-      case 1: a = range(2, 5); b = range(1, 5); break;
-      case 2: a = range(2, 6); b = range(2, 9); break;
+      case 0: a = pick([1, 2, 5]); b = range(1, 5); break;
+      case 1: a = range(2, 5); b = range(1, 9); break;
+      case 2: a = range(2, 7); b = range(2, 9); break;
       case 3: a = range(3, 9); b = range(3, 9); break;
       default: a = range(6, 9); b = range(6, 9); break;
     }
@@ -106,73 +87,7 @@
     return { kind: 'math', text: a + ' × ' + b, answers: [String(a * b)], answer: String(a * b) };
   }
 
-  /* Pull random pairs until the carry / borrow count matches the level. */
-  function makeAdd(level) {
-    var a = 0, b = 0, i;
-    if (level <= 1) {
-      /* within 100: two 2-digit numbers (level 1 may regroup once) */
-      for (i = 0; i < 300; i++) {
-        a = range(10, 89); b = range(10, 89);
-        if (a + b > 99) continue;
-        var c0 = carries(a, b);
-        if (level === 0 ? c0 === 0 : c0 === 1) break;
-      }
-      if (a + b > 99) { a = 23; b = 45; }
-      if (level === 1 && Math.random() < 0.4) {
-        /* or a 3-digit plus 2-digit with no carry, to meet the hundreds */
-        for (i = 0; i < 300; i++) {
-          a = range(100, 899); b = range(10, 99);
-          if (a + b <= 999 && carries(a, b) === 0) break;
-        }
-      }
-      return { kind: 'math', text: a + ' + ' + b, answers: [String(a + b)], answer: String(a + b) };
-    }
-    var want = [0, 0, 1, 2, 2][level];
-    for (i = 0; i < 300; i++) {
-      a = range(100, 899);
-      b = range(100, 899);
-      if (a + b > 999) continue;
-      var c = carries(a, b);
-      if (level === 4 ? c >= 1 : (level === 2 ? c <= 1 : c === want)) break;
-    }
-    if (a + b > 999) { a = 123; b = 45; }
-    return { kind: 'math', text: a + ' + ' + b, answers: [String(a + b)], answer: String(a + b) };
-  }
-
-  function makeSub(level) {
-    var a = 0, b = 0, i;
-    if (level <= 1) {
-      for (i = 0; i < 300; i++) {
-        a = range(20, 99); b = range(10, 89);
-        if (b > a) continue;
-        var b0 = borrows(a, b);
-        if (level === 0 ? b0 === 0 : b0 === 1) break;
-      }
-      if (b > a) { a = 68; b = 23; }
-      return { kind: 'math', text: a + ' − ' + b, answers: [String(a - b)], answer: String(a - b) };
-    }
-    var want = [0, 0, 1, 2, 2][level];
-    for (i = 0; i < 300; i++) {
-      a = range(100, 999);
-      b = range(100, 899);
-      if (b > a) continue;
-      /* top level: borrowing across a zero, the trickiest second-grade case */
-      if (level === 4 && digits(a)[1] !== 0 && Math.random() < 0.7) continue;
-      var br = borrows(a, b);
-      if (level === 4 ? br >= 1 : (level === 2 ? br <= 1 : br === want)) break;
-    }
-    if (b > a) { a = 456; b = 123; }
-    return { kind: 'math', text: a + ' − ' + b, answers: [String(a - b)], answer: String(a - b) };
-  }
-
-  function makeMath(level) {
-    var r = Math.random();
-    /* multiplication is new at this age, so it comes in gradually */
-    var multShare = [0.2, 0.3, 0.4, 0.4, 0.4][level];
-    if (r < multShare) return makeMult(level);
-    if (r < multShare + (1 - multShare) / 2) return makeAdd(level);
-    return makeSub(level);
-  }
+  function makeMath(level) { return makeMult(level); }
 
   /* ================================================================
      Kanji
@@ -256,6 +171,9 @@
 
   /* ================================================================
      Kana keypad: the 50-sound table plus ゛ ゜ small ー
+     Listed あ-row first; kanaRect() lays the columns out right-to-left
+     so あ sits in the top-right corner and ん bottom-left, exactly like
+     a printed gojuon chart.
      ================================================================ */
   var KANA_COLS = [
     ['あ', 'い', 'う', 'え', 'お'], ['か', 'き', 'く', 'け', 'こ'], ['さ', 'し', 'す', 'せ', 'そ'],
@@ -306,40 +224,196 @@
     for (var k in ROMAJI) if (k.indexOf(str) === 0) return true;
     return false;
   }
-  function feedRomaji(ch) {
-    roman += ch;
+  /* One letter into a romaji buffer. st = { buf, out }: kana that
+     resolved is appended to out, letters still waiting stay in buf. */
+  function romajiStep(st, ch) {
+    st.buf += ch;
     /* doubled consonant = っ (kk -> っk), but not n */
-    if (roman.length >= 2 && roman[0] === roman[1] && isConsonant(roman[0]) && roman[0] !== 'n') {
-      gate.input += 'っ';
-      roman = roman.slice(1);
+    if (st.buf.length >= 2 && st.buf[0] === st.buf[1] && isConsonant(st.buf[0]) && st.buf[0] !== 'n') {
+      st.out += 'っ';
+      st.buf = st.buf.slice(1);
     }
     /* n before a consonant (other than y) = ん */
-    if (roman[0] === 'n' && roman.length >= 2 && 'aiueoyn'.indexOf(roman[1]) < 0) {
-      gate.input += 'ん';
-      roman = roman.slice(1);
+    if (st.buf[0] === 'n' && st.buf.length >= 2 && 'aiueoyn'.indexOf(st.buf[1]) < 0) {
+      st.out += 'ん';
+      st.buf = st.buf.slice(1);
     }
     /* nn: ん, then the second n starts the next syllable if a vowel
        follows (onna -> おんな), otherwise it is spent (kannji -> かんじ) */
-    if (roman.indexOf('nn') === 0) {
-      if (roman.length < 3) return;             /* wait for the next letter */
-      gate.input += 'ん';
-      roman = ('aiueoy'.indexOf(roman[2]) >= 0) ? roman.slice(1) : roman.slice(2);
-      if (!roman) return;
+    if (st.buf.indexOf('nn') === 0) {
+      if (st.buf.length < 3) return;             /* wait for the next letter */
+      st.out += 'ん';
+      st.buf = ('aiueoy'.indexOf(st.buf[2]) >= 0) ? st.buf.slice(1) : st.buf.slice(2);
+      if (!st.buf) return;
     }
-    if (ROMAJI[roman]) {
-      gate.input += ROMAJI[roman];
-      roman = '';
+    if (ROMAJI[st.buf]) {
+      st.out += ROMAJI[st.buf];
+      st.buf = '';
       return;
     }
     /* still a prefix of something? keep waiting; otherwise drop the junk */
-    if (!isPrefix(roman)) {
-      roman = roman.slice(-1);
-      if (!isPrefix(roman)) roman = '';
+    if (!isPrefix(st.buf)) {
+      st.buf = st.buf.slice(-1);
+      if (!isPrefix(st.buf)) st.buf = '';
     }
   }
+  function romajiFlush(st) {
+    if (st.buf === 'n' || st.buf === 'nn') st.out += 'ん';
+    st.buf = '';
+  }
+  function feedRomaji(ch) {
+    var st = { buf: roman, out: '' };
+    romajiStep(st, ch);
+    gate.input += st.out;
+    roman = st.buf;
+  }
   function flushRomaji() {
-    if (roman === 'n' || roman === 'nn') gate.input += 'ん';
+    var st = { buf: roman, out: '' };
+    romajiFlush(st);
+    gate.input += st.out;
     roman = '';
+  }
+
+  /* ================================================================
+     Keyboard mode: a real <input> floats over the answer box so the
+     device's own Japanese keyboard (flick, kana or romaji) does the
+     typing. Only hiragana may land in it: katakana is folded to
+     hiragana, latin letters go through the romaji table, and when the
+     IME commits a kanji candidate the answer snaps back to the kana
+     that were showing just before the conversion.
+     ================================================================ */
+  function kanaMode() {
+    var m = Game.settings && Game.settings.kanaInput;
+    return m === 'keypad' ? 'keypad' : 'keyboard';
+  }
+  function setKanaMode(m) {
+    if (!Game.settings) Game.settings = {};
+    Game.settings.kanaInput = m;
+    if (Game.engine && Game.engine.save) Game.engine.save();
+  }
+  function usesField() { return gate.open && gate.problem && gate.problem.kind === 'kanji' && kanaMode() === 'keyboard'; }
+
+  function isKanaChar(code) { return (code >= 0x3041 && code <= 0x3096) || code === 0x30fc || code === 0x309d || code === 0x309e; }
+  function isAllKana(str) {
+    for (var i = 0; i < str.length; i++) if (!isKanaChar(str.charCodeAt(i))) return false;
+    return true;
+  }
+  /* Fold any typed text to hiragana. Latin letters run through the
+     romaji table; with final=false an unfinished syllable is kept as
+     letters at the end so the typist can finish it. */
+  function toHiragana(str, final) {
+    var out = '', st = { buf: '', out: '' };
+    function flushLatin() {
+      if (final) romajiFlush(st);
+      out += st.out + (final ? '' : st.buf);
+      st.out = ''; st.buf = '';
+    }
+    for (var i = 0; i < str.length; i++) {
+      var ch = str[i], code = str.charCodeAt(i);
+      if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122)) { romajiStep(st, ch.toLowerCase()); continue; }
+      if ((code >= 0xff21 && code <= 0xff3a) || (code >= 0xff41 && code <= 0xff5a)) { romajiStep(st, String.fromCharCode((code - 0xff21) % 32 + 97)); continue; }
+      flushLatin();
+      if (isKanaChar(code)) out += ch;
+      else if (code >= 0x30a1 && code <= 0x30f6) out += String.fromCharCode(code - 0x60);   /* katakana -> hiragana */
+      else if (ch === '-' || ch === '－' || ch === '―' || ch === '−') out += 'ー';
+    }
+    flushLatin();
+    return out.slice(0, 10);
+  }
+
+  var field = null, fieldShown = false, composing = false, compBase = '', lastKana = '';
+  function ensureField() {
+    if (field) return field;
+    field = document.createElement('input');
+    field.type = 'text';
+    field.id = 'kana-field';
+    field.setAttribute('lang', 'ja');
+    field.setAttribute('autocomplete', 'off');
+    field.setAttribute('autocorrect', 'off');
+    field.setAttribute('autocapitalize', 'none');
+    field.setAttribute('spellcheck', 'false');
+    field.setAttribute('enterkeyhint', 'done');
+    field.setAttribute('maxlength', '14');
+    field.setAttribute('aria-label', 'hiragana');
+    field.style.cssText = 'position:fixed;left:0;top:0;display:none;z-index:50;box-sizing:border-box;' +
+      'margin:0;padding:0 10px;border:2px solid #4a2a40;border-radius:10px;background:#ffffff;color:#4a2a40;' +
+      'font-family:"M PLUS Rounded 1c",sans-serif;font-weight:700;text-align:center;outline:none;' +
+      '-webkit-appearance:none;appearance:none;box-shadow:0 3px 0 rgba(74,42,64,0.28);caret-color:#e2559a;' +
+      '-webkit-user-select:text;user-select:text;touch-action:manipulation;';
+    field.addEventListener('compositionstart', function () {
+      composing = true;
+      compBase = field.value;
+      lastKana = '';
+    });
+    field.addEventListener('compositionupdate', function (e) {
+      var d = e.data || '', k = toHiragana(d, false);
+      if (d && k.length === d.length && isAllKana(k)) lastKana = k;
+    });
+    field.addEventListener('compositionend', function (e) {
+      composing = false;
+      var d = e.data || '';
+      /* a kanji candidate was picked: keep the reading, not the kanji */
+      if (d && toHiragana(d, false).length !== d.length && lastKana) field.value = compBase + lastKana;
+      sanitizeField();
+    });
+    field.addEventListener('input', function (e) {
+      if (composing || (e && e.isComposing)) return;
+      sanitizeField();
+    });
+    field.addEventListener('keydown', function (e) {
+      if (e.isComposing || e.keyCode === 229) return;
+      if (e.key === 'Enter') { e.preventDefault(); if (gate.phase === 'ask') submit(); else if (gate.phaseTimer > 0) gate.phaseTimer = 1; }
+      else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+    });
+    document.body.appendChild(field);
+    return field;
+  }
+  function sanitizeField() {
+    if (!field) return;
+    var clean = toHiragana(field.value, false);
+    if (clean !== field.value) field.value = clean;
+    gate.input = toHiragana(clean, false);
+  }
+  function showField(focus) {
+    var f = ensureField();
+    f.value = gate.input;
+    /* the runway opens the gate from the game loop, not from a tap, so
+       iOS will not raise its keyboard until she touches the box herself */
+    f.placeholder = Game.i18n.t('inputTapHere');
+    fieldShown = true;
+    f.style.display = 'block';
+    placeField();
+    if (focus) { try { f.focus({ preventScroll: true }); } catch (err) { f.focus(); } }
+  }
+  function hideField() {
+    if (!field) return;
+    fieldShown = false;
+    composing = false;
+    field.style.display = 'none';
+    if (document.activeElement === field) field.blur();
+  }
+  /* Pin the field over the answer box, whatever the canvas scale. */
+  function placeField() {
+    if (!field || !fieldShown) return;
+    var canvas = document.getElementById('gameCanvas');
+    if (!canvas) return;
+    var rect = canvas.getBoundingClientRect();
+    var dpr = Math.min(3, window.devicePixelRatio || 1);
+    var s = rect.width / (canvas.width / dpr);
+    var gx = Game.TOUCH_LEFT_W || 0, gy = Game.GAME_Y || 0;
+    var r = KB.answer;
+    field.style.left = Math.round(rect.left + (gx + r.x) * s) + 'px';
+    field.style.top = Math.round(rect.top + (gy + r.y) * s) + 'px';
+    field.style.width = Math.round(r.w * s) + 'px';
+    field.style.height = Math.round(r.h * s) + 'px';
+    field.style.fontSize = Math.max(16, Math.round(28 * s)) + 'px';
+    field.style.borderRadius = Math.round(10 * s) + 'px';
+    field.style.borderWidth = Math.max(1, Math.round(2 * s)) + 'px';
+  }
+  function commitField() {
+    if (!field || !fieldShown) return;
+    gate.input = toHiragana(field.value, true);
+    field.value = gate.input;
   }
 
   /* ================================================================
@@ -378,10 +452,12 @@
     gate.icon = opts.icon || null;
     roman = '';
     Game.input.setKeyCapture(onKey);
+    if (usesField()) showField(true); else hideField();
   }
 
   function close(result) {
     gate.open = false;
+    hideField();
     Game.input.setKeyCapture(null);
     var cb = gate.onResolve;
     gate.onResolve = null;
@@ -395,7 +471,7 @@
 
   function submit() {
     if (gate.phase !== 'ask') return;
-    flushRomaji();
+    if (usesField()) commitField(); else flushRomaji();
     var ans = gate.input.trim();
     if (!ans) { Game.audio.play('deny'); return; }
     gate.tries++;
@@ -408,6 +484,7 @@
       recordResult(true, gate.tries);
       gate.phase = 'right';
       gate.phaseTimer = 55;
+      hideField();
       return;
     }
     if (gate.tries >= gate.maxTries) {
@@ -415,6 +492,7 @@
       recordResult(false, gate.tries);
       gate.phase = 'fail';
       gate.phaseTimer = 150;
+      hideField();
       return;
     }
     Game.audio.play('wrong');
@@ -451,6 +529,20 @@
       else if (gate.phaseTimer > 0) gate.phaseTimer = 1;
       return true;
     }
+    if (usesField()) {
+      /* the field lost focus (a click on the canvas): route the key into
+         it and hand focus back, so typing never silently goes nowhere */
+      var f = ensureField();
+      var fk = /^Key([A-Z])$/.exec(code);
+      if (gate.phase === 'ask') {
+        if (code === 'Backspace') f.value = f.value.slice(0, -1);
+        else if (fk) f.value += fk[1].toLowerCase();
+        else if (code === 'Minus') f.value += 'ー';
+        sanitizeField();
+      }
+      try { f.focus({ preventScroll: true }); } catch (err) { f.focus(); }
+      return true;
+    }
     if (code === 'Backspace') { backspace(); return true; }
     if (gate.problem.kind === 'math') {
       var m = /^(Digit|Numpad)(\d)$/.exec(code);
@@ -471,7 +563,7 @@
     if (gate.phaseTimer > 0) {
       gate.phaseTimer--;
       if (gate.phaseTimer === 0) {
-        if (gate.phase === 'wrongFlash') { gate.phase = 'ask'; gate.input = ''; roman = ''; }
+        if (gate.phase === 'wrongFlash') { gate.phase = 'ask'; gate.input = ''; roman = ''; if (field && fieldShown) field.value = ''; }
         else resolveNow();
       }
     }
@@ -492,8 +584,20 @@
     grid: { x: 292, y: 92, cell: 44, gap: 4 },
     mods: { y: 338, h: 46 },
     answer: { x: 36, y: 236, w: 236, h: 54 },
+    modeSwitch: { x: 36, y: 318, w: 236, h: 34 },
     cancel: { x: 36, y: 398, w: 110, h: 36 },
   };
+  /* Keyboard mode: a short card hugging the top of the screen, so the
+     tablet's on-screen keyboard (the lower half) leaves it in view. */
+  var KB = {
+    panel: { x: 90, y: 18, w: 620, h: 236 },
+    card: { x: 110, y: 80, w: 180, h: 112 },
+    answer: { x: 316, y: 84, w: 370, h: 58 },
+    modeSwitch: { x: 110, y: 212, w: 180, h: 30 },
+    ok: { x: 540, y: 176, w: 146, h: 48 },
+    cancel: { x: 316, y: 182, w: 110, h: 36 },
+  };
+  function kanjiLayout() { return kanaMode() === 'keyboard' ? KB : KANJI; }
 
   function mathKeyRect(i) {
     /* 1 2 3 / 4 5 6 / 7 8 9 / ⌫ 0 ✓ */
@@ -505,7 +609,8 @@
 
   function kanaRect(col, row) {
     var G = KANJI.grid;
-    return { x: G.x + col * (G.cell + G.gap), y: G.y + row * (G.cell + G.gap), w: G.cell, h: G.cell };
+    var vis = KANA_COLS.length - 1 - col;   /* right-to-left */
+    return { x: G.x + vis * (G.cell + G.gap), y: G.y + row * (G.cell + G.gap), w: G.cell, h: G.cell };
   }
   /* modifier row: ゛ ゜ 小 ー ⌫ OK */
   var KANA_MODS = ['daku', 'handaku', 'small', 'long', 'back', 'ok'];
@@ -531,10 +636,11 @@
     c.fillRect(V.x, V.y, V.w, V.h);
 
     var isMath = gate.problem.kind === 'math';
-    var L = isMath ? MATH : KANJI;
+    var L = isMath ? MATH : kanjiLayout();
     var P = L.panel;
     var sx = gate.shake > 0 ? Math.sin(gate.shake * 1.8) * gate.shake * 0.7 : 0;
     c.translate(sx, 0);
+    if (fieldShown) placeField();
 
     /* card */
     c.fillStyle = 'rgba(43, 21, 48, 0.25)';
@@ -560,7 +666,7 @@
       drawHeart(c, hx, hy, 8, h < triesLeft() ? PAL.coral : 'rgba(74,42,64,0.18)');
     }
 
-    if (isMath) drawMath(c); else drawKanji(c);
+    if (isMath) drawMath(c); else if (L === KB) drawKanjiKeyboard(c); else drawKanji(c);
 
     /* phase overlays */
     if (gate.phase === 'right') {
@@ -712,6 +818,71 @@
       var kind = KANA_MODS[m] === 'ok' ? 'ok' : KANA_MODS[m] === 'back' ? 'back' : 'mod';
       keyButton(c, modRect(m), labels[m], kind);
     }
+    drawModeSwitch(c, KANJI.modeSwitch);
+  }
+
+  /* Two-way switch between the device keyboard and the kana keypad. */
+  function drawModeSwitch(c, r) {
+    var U = Game.ui, E = Game.entities, PAL = Game.PAL, T = Game.i18n.t;
+    var mode = kanaMode();
+    E.fillRound(c, r.x, r.y, r.w, r.h, r.h / 2, 'rgba(74,42,64,0.1)');
+    var half = r.w / 2;
+    var opts = [['keyboard', T('inputKeyboard')], ['keypad', T('inputKeypad')]];
+    for (var i = 0; i < 2; i++) {
+      var on = opts[i][0] === mode;
+      var bx = r.x + i * half;
+      var hot = !on && U.pointerOver(c, bx, r.y, half, r.h);
+      if (on) {
+        c.save();
+        c.fillStyle = 'rgba(74,42,64,0.25)';
+        E.roundRect(c, bx + 2, r.y + 4, half - 4, r.h - 4, r.h / 2 - 2); c.fill();
+        c.restore();
+        E.fillRound(c, bx + 2, r.y + 2, half - 4, r.h - 4, r.h / 2 - 2, PAL.sun);
+        c.fillStyle = 'rgba(255,255,255,0.4)';
+        E.roundRect(c, bx + 6, r.y + 4, half - 12, (r.h - 4) * 0.42, r.h / 2 - 4); c.fill();
+      } else if (hot) {
+        E.fillRound(c, bx + 2, r.y + 2, half - 4, r.h - 4, r.h / 2 - 2, 'rgba(255,255,255,0.5)');
+      }
+      c.fillStyle = on ? PAL.ink : 'rgba(74,42,64,0.7)';
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      U.fitFont(c, opts[i][1], half - 14, 13, 'bold', 9);
+      c.fillText(opts[i][1], bx + half / 2, r.y + r.h / 2 + 1);
+    }
+  }
+
+  function drawKanjiKeyboard(c) {
+    var U = Game.ui, PAL = Game.PAL, T = Game.i18n.t, E = Game.entities;
+    var K = KB.card;
+    /* the word, big, on a soft card */
+    E.fillRound(c, K.x, K.y, K.w, K.h, 14, '#fff');
+    if (gate.icon) { E.fillEllipse(c, K.x + K.w - 2, K.y + 2, 28, 28, '#ffffff'); gate.icon(c, K.x + K.w - 2, K.y + 2, 0.66); }
+    c.fillStyle = PAL.ink;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    var txt = gate.problem.text;
+    U.fitFont(c, txt, K.w - 24, txt.length <= 1 ? 76 : txt.length <= 3 ? 52 : 40, 'bold', 22);
+    c.fillText(txt, K.x + K.w / 2, K.y + K.h / 2 + 2);
+    c.font = 'bold 12px ' + U.FONT;
+    c.fillStyle = 'rgba(74,42,64,0.75)';
+    c.fillText(T('gateKanjiPrompt'), K.x + K.w / 2, K.y + K.h + 12);
+    /* the answer box is the real text field; only paint it ourselves
+       while the field is hidden (result flashes) */
+    var A = KB.answer;
+    if (fieldShown) {
+      c.fillStyle = 'rgba(74,42,64,0.28)';
+      E.roundRect(c, A.x, A.y + 3, A.w, A.h, 10); c.fill();
+    } else {
+      answerBox(c, A, gate.input, false);
+      E.roundRect(c, A.x, A.y, A.w, A.h, 10); E.ink(c, 2);
+    }
+    c.font = '12px ' + U.FONT;
+    c.fillStyle = 'rgba(74,42,64,0.6)';
+    c.textAlign = 'left';
+    c.textBaseline = 'middle';
+    c.fillText(T('inputKeyboardHint'), A.x + 4, A.y + A.h + 14);
+    keyButton(c, KB.ok, 'OK', 'ok');
+    drawModeSwitch(c, KB.modeSwitch);
   }
 
   /* ================================================================
@@ -728,9 +899,23 @@
       return true;
     }
     var isMath = gate.problem.kind === 'math';
-    var L = isMath ? MATH : KANJI;
+    var L = isMath ? MATH : kanjiLayout();
     if (gate.mode === 'studio' && U.hit(L.cancel, mx, my)) { cancel(); return true; }
     var i;
+    if (!isMath && U.hit(L.modeSwitch, mx, my)) {
+      var want = mx < L.modeSwitch.x + L.modeSwitch.w / 2 ? 'keyboard' : 'keypad';
+      if (want !== kanaMode()) {
+        Game.audio.play('select');
+        if (want === 'keypad') { commitField(); hideField(); }
+        setKanaMode(want);
+        if (want === 'keyboard') { roman = ''; showField(true); }
+      }
+      return true;
+    }
+    if (!isMath && L === KB) {
+      if (U.hit(KB.ok, mx, my)) submit();
+      return true;
+    }
     if (isMath) {
       for (i = 0; i < MATH_KEYS.length; i++) {
         if (U.hit(mathKeyRect(i), mx, my)) {
@@ -774,6 +959,10 @@
     currentLevel: currentLevel,
     progress: progress,
     isKanjiMode: isKanjiMode,
+    kanaMode: kanaMode,
+    setKanaMode: setKanaMode,
+    toHiragana: toHiragana,
     _state: gate,
+    _field: function () { return field; },
   };
 })();

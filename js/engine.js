@@ -13,7 +13,7 @@
   var GAME_X = 0, GAME_Y = 0;
 
   /* Bump alongside CACHE_NAME in sw.js and tag the matching git release. */
-  Game.VERSION = 'v1.1.0';
+  Game.VERSION = 'v1.2.0';
 
   var canvas, ctx;
 
@@ -38,7 +38,7 @@
   var player = null;
   var particles = [];
   var t = 0;
-  var PLAYER_SCALE = 1.35;
+  var PLAYER_SCALE = 1.6;
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
@@ -46,7 +46,7 @@
     Game.look = clone(Game.DEFAULT_LOOK);
     Game.progress = { mathSkill: 0, kanjiSkill: 0, stars: 0, solved: 0, missed: 0, shows: 0, wins: 0 };
     Game.flags = { introSeen: false };
-    Game.settings = Game.settings || { lang: 'en', muted: false };
+    Game.settings = Game.settings || { lang: 'en', muted: false, kanaInput: 'keyboard' };
   }
 
   function save() {
@@ -54,7 +54,7 @@
       localStorage.setItem(KEY('look'), JSON.stringify(Game.look));
       localStorage.setItem(KEY('progress'), JSON.stringify(Game.progress));
       localStorage.setItem(KEY('flags'), JSON.stringify(Game.flags));
-      localStorage.setItem(KEY('settings'), JSON.stringify({ lang: Game.i18n.getLang(), muted: Game.audio.isMuted() }));
+      localStorage.setItem(KEY('settings'), JSON.stringify({ lang: Game.i18n.getLang(), muted: Game.audio.isMuted(), kanaInput: Game.settings && Game.settings.kanaInput }));
     } catch (e) { /* storage full or disabled */ }
   }
 
@@ -95,12 +95,14 @@
   function resetSave() {
     var lang = Game.i18n.getLang();
     var muted = Game.audio.isMuted();
+    var kanaInput = Game.settings && Game.settings.kanaInput;
     try {
       ['look', 'progress', 'flags'].forEach(function (n) { localStorage.removeItem(KEY(n)); });
     } catch (e) { /* ignore */ }
     freshState();
     Game.settings.lang = lang;
     Game.settings.muted = muted;
+    Game.settings.kanaInput = kanaInput;
     Game.i18n.setLang(lang);
     save();
   }
@@ -297,11 +299,25 @@
       case State.WARDROBE: Game.ui.drawWardrobe(ctx); break;
       case State.RUNWAY: Game.runway.draw(ctx); break;
     }
+    if (state !== State.PAUSED) drawVignette(ctx, state === State.PLAYING || state === State.RUNWAY ? 0.3 : 0.2);
     if (Game.gate.isOpen()) Game.gate.draw(ctx);
 
     ctx.restore();
     Game.ui.endFrame();
     updateChrome();
+  }
+
+  /* Cinematic edge falloff over whatever was just drawn, so the eye is
+     pulled to the middle of the screen. One gradient fill per frame. */
+  function drawVignette(c, strength) {
+    var V = Game.ui.VIEW;
+    var cx = V.x + V.w / 2, cy = V.y + V.h / 2;
+    var r = Math.max(V.w, V.h) * 0.74;
+    var g = c.createRadialGradient(cx, cy, r * 0.5, cx, cy, r);
+    g.addColorStop(0, 'rgba(43, 21, 48, 0)');
+    g.addColorStop(1, 'rgba(43, 21, 48, ' + strength + ')');
+    c.fillStyle = g;
+    c.fillRect(V.x, V.y, V.w, V.h);
   }
 
   var linkEl = null, lastLinkShown = null, lastCursor = null;

@@ -92,11 +92,12 @@
     var tw = 0.8 + Math.sin(t / 17 + x) * 0.2;
     c.strokeStyle = PAL.ink; c.lineWidth = 2;
     c.beginPath(); c.moveTo(x, y - 60); c.lineTo(x, y - 22); c.stroke();
-    var g = c.createRadialGradient(x, y, 6, x, y, 56);
-    g.addColorStop(0, 'rgba(255, 240, 190, ' + (0.5 * tw) + ')');
+    var g = c.createRadialGradient(x, y, 6, x, y, 86);
+    g.addColorStop(0, 'rgba(255, 240, 190, ' + (0.6 * tw) + ')');
+    g.addColorStop(0.4, 'rgba(255, 236, 170, ' + (0.22 * tw) + ')');
     g.addColorStop(1, 'rgba(255, 240, 190, 0)');
     c.fillStyle = g;
-    c.fillRect(x - 56, y - 56, 112, 112);
+    c.fillRect(x - 86, y - 86, 172, 172);
     /* arms and candles */
     E.fillEllipse(c, x, y - 2, 30, 8, PAL.gold);
     for (var i = -2; i <= 2; i++) {
@@ -113,6 +114,13 @@
       c.beginPath(); c.moveTo(dx, dy - 3); c.lineTo(dx + 3, dy + 2); c.lineTo(dx, dy + 8); c.lineTo(dx - 3, dy + 2); c.closePath(); c.stroke();
     }
     E.fillEllipse(c, x, y - 22, 5, 5, PAL.gold);
+    /* a glint hopping between the crystals */
+    var gi = Math.floor(t / 16 + x / 50) % 7 - 3;
+    c.save();
+    c.globalAlpha = 0.6 + Math.sin(t / 4) * 0.3;
+    c.fillStyle = '#ffffff';
+    E.star(c, x + gi * 9, y + 10 + (gi % 2 === 0 ? 6 : 0), 4);
+    c.restore();
   }
 
   /* Framed portrait of a model on the wall between windows. */
@@ -255,9 +263,44 @@
     for (var wx = start; wx < camX * 0.85 + V.x + V.w + span; wx += span) {
       drawWindow(c, wx - camX * 0.85 + off, groundY - 226);
     }
+    drawLightShafts(c, camX, groundY, winShift);
     drawLights(c, camX, t, menu);
     drawBunting(c, camX, t);
     drawFloor(c, camX, groundY);
+    drawFloorShadow(c, groundY);
+  }
+
+  /* Sunlight slanting in through every window and pooling on the floor. */
+  function drawLightShafts(c, camX, groundY, winShift) {
+    var V = view();
+    var span = Game.STUDIO.stationGap * 2;
+    var off = 60 + (winShift || 0);
+    var start = Math.floor((camX * 0.85 + V.x - off) / span) * span - span;
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (var wx = start; wx < camX * 0.85 + V.x + V.w + span; wx += span) {
+      var x = wx - camX * 0.85 + off, y = groundY - 226;
+      var g = c.createLinearGradient(x, y, x - 90, groundY + 40);
+      g.addColorStop(0, 'rgba(255, 246, 214, 0.26)');
+      g.addColorStop(0.6, 'rgba(255, 246, 214, 0.08)');
+      g.addColorStop(1, 'rgba(255, 246, 214, 0)');
+      c.fillStyle = g;
+      c.beginPath();
+      c.moveTo(x - 46, y); c.lineTo(x + 46, y);
+      c.lineTo(x - 40, groundY + 40); c.lineTo(x - 190, groundY + 40);
+      c.closePath(); c.fill();
+    }
+    c.restore();
+  }
+
+  /* Ambient occlusion where the wall meets the floor. */
+  function drawFloorShadow(c, groundY) {
+    var V = view();
+    var g = c.createLinearGradient(0, groundY - 2, 0, groundY + 22);
+    g.addColorStop(0, 'rgba(74, 42, 64, 0.22)');
+    g.addColorStop(1, 'rgba(74, 42, 64, 0)');
+    c.fillStyle = g;
+    c.fillRect(V.x, groundY - 2, V.w, 24);
   }
 
   /* ================================================================
@@ -355,6 +398,15 @@
     /* a shelf with little bottles */
     E.fillRound(c, x - 70, groundY - 74, 140, 5, 2, E.shade(st.hue, -10), false);
     c.restore();
+    /* the awning's shadow falls across the top of the board */
+    c.save();
+    E.roundRect(c, x - 74, groundY - 192, 148, 144, 8); c.clip();
+    var ag = c.createLinearGradient(0, groundY - 192, 0, groundY - 158);
+    ag.addColorStop(0, 'rgba(74, 42, 64, 0.26)');
+    ag.addColorStop(1, 'rgba(74, 42, 64, 0)');
+    c.fillStyle = ag;
+    c.fillRect(x - 74, groundY - 192, 148, 36);
+    c.restore();
     E.roundRect(c, x - 74, groundY - 192, 148, 144, 8);
     E.ink(c, 2);
 
@@ -388,6 +440,15 @@
     c.fillRect(x - 72, groundY - 62, 144, 62);
     c.restore();
     E.roundRect(c, x - 72, groundY - 62, 144, 62, 6); E.ink(c, 2);
+    /* the counter top's shadow on the striped front */
+    c.save();
+    E.roundRect(c, x - 72, groundY - 62, 144, 62, 6); c.clip();
+    var sg = c.createLinearGradient(0, groundY - 58, 0, groundY - 40);
+    sg.addColorStop(0, 'rgba(74, 42, 64, 0.28)');
+    sg.addColorStop(1, 'rgba(74, 42, 64, 0)');
+    c.fillStyle = sg;
+    c.fillRect(x - 72, groundY - 58, 144, 20);
+    c.restore();
     E.fillRound(c, x - 80, groundY - 70, 160, 14, 5, PAL.wood);
     c.fillStyle = 'rgba(255,255,255,0.45)'; c.fillRect(x - 78, groundY - 68, 156, 3);
     c.fillStyle = 'rgba(74,42,64,0.15)'; c.fillRect(x - 78, groundY - 59, 156, 2);
@@ -727,18 +788,25 @@
     /* sweeping spotlights */
     c.save();
     c.globalCompositeOperation = 'lighter';
-    var beams = [[120, PAL.pink, 0], [400, PAL.sky, 2.1], [680, PAL.sun, 4.2]];
+    var beams = [[120, '255,143,192', 0], [400, '159,217,255', 2.1], [680, '255,210,74', 4.2]];
     for (var b = 0; b < beams.length; b++) {
       var bx = beams[b][0];
       var ang = Math.sin(t / 60 + beams[b][2]) * 0.5;
       c.save();
       c.translate(bx, V.y - 10);
       c.rotate(ang);
-      var bg = c.createLinearGradient(0, 0, 0, 420);
-      bg.addColorStop(0, 'rgba(255,255,255,0.22)');
-      bg.addColorStop(1, 'rgba(255,255,255,0)');
+      var bg = c.createLinearGradient(0, 0, 0, 440);
+      bg.addColorStop(0, 'rgba(' + beams[b][1] + ',0.34)');
+      bg.addColorStop(0.5, 'rgba(' + beams[b][1] + ',0.12)');
+      bg.addColorStop(1, 'rgba(' + beams[b][1] + ',0)');
       c.fillStyle = bg;
-      c.beginPath(); c.moveTo(-8, 0); c.lineTo(8, 0); c.lineTo(110, 420); c.lineTo(-110, 420); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(-8, 0); c.lineTo(8, 0); c.lineTo(120, 440); c.lineTo(-120, 440); c.closePath(); c.fill();
+      /* a hot core down the middle of the beam */
+      var core = c.createLinearGradient(0, 0, 0, 440);
+      core.addColorStop(0, 'rgba(255,255,255,0.18)');
+      core.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = core;
+      c.beginPath(); c.moveTo(-4, 0); c.lineTo(4, 0); c.lineTo(40, 440); c.lineTo(-40, 440); c.closePath(); c.fill();
       c.restore();
     }
     c.restore();
@@ -825,6 +893,26 @@
     c.fillRect(V.x, SB, V.w, 10);
     c.fillStyle = 'rgba(0,0,0,0.18)';
     c.fillRect(V.x, SB + 10, V.w, 6);
+    /* the pose spot: a bright pool on the catwalk where she stops */
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    c.save();
+    c.translate(RUNWAY.poseX, ST + 30);
+    c.scale(1, 0.3);
+    var ps = c.createRadialGradient(0, 0, 4, 0, 0, 130);
+    ps.addColorStop(0, 'rgba(255, 246, 220, 0.42)');
+    ps.addColorStop(0.6, 'rgba(255, 246, 220, 0.12)');
+    ps.addColorStop(1, 'rgba(255, 246, 220, 0)');
+    c.fillStyle = ps;
+    c.fillRect(-130, -130, 260, 260);
+    c.restore();
+    /* stage haze */
+    var hz = c.createLinearGradient(0, ST - 90, 0, ST + 10);
+    hz.addColorStop(0, 'rgba(255, 200, 240, 0)');
+    hz.addColorStop(1, 'rgba(255, 200, 240, 0.14)');
+    c.fillStyle = hz;
+    c.fillRect(V.x, ST - 90, V.w, 100);
+    c.restore();
     /* footlights */
     for (var f = 0; f < 20; f++) {
       var fx = V.x + (f + 0.5) * (V.w / 20);

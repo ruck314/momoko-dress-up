@@ -356,21 +356,41 @@
         fillRound(c, lx - 0.5, bot - 2, 7, 12, 2.5, col);
         fillRound(c, rx - 0.5, bot - 2, 7, 12, 2.5, col);
         break;
-      case 'skirt':
-        shadedFill(c, polyPath(c, [[-9, bot - 5], [9, bot - 5], [13, bot + 5], [-13, bot + 5]]), col);
-        break;
-      case 'poofySkirt':
-        shadedFill(c, function () {
-          c.beginPath();
-          c.moveTo(-9, bot - 5);
-          c.lineTo(9, bot - 5);
-          c.quadraticCurveTo(18, bot - 2, 15, bot + 7);
-          c.quadraticCurveTo(0, bot + 10, -15, bot + 7);
-          c.quadraticCurveTo(-18, bot - 2, -9, bot - 5);
-          c.closePath();
-        }, col);
-        for (var d = -10; d <= 10; d += 5) fillEllipse(c, d, bot + 1 + (d % 10 === 0 ? 2 : 0), 1.2, 1.2, light, false);
-        break;
+      /* skirts are drawn by drawSkirt(), over the camisole */
+    }
+  }
+
+  /* Skirts sit at the waist, over the camisole hem, so the whole skirt
+     shows instead of the sliver that peeked out below the top. */
+  function drawSkirt(c, cust) {
+    if (cust.pants !== 'skirt' && cust.pants !== 'poofySkirt') return;
+    var col = cust.pantsColor, dark = shade(col, -20), light = shade(col, 25);
+    var bot = CH.torsoBot, waist = bot - 7;
+    if (cust.pants === 'skirt') {
+      shadedFill(c, polyPath(c, [[-9, waist], [9, waist], [15, bot + 7], [-15, bot + 7]]), col);
+      /* pleats */
+      c.strokeStyle = 'rgba(74,42,64,0.28)'; c.lineWidth = 1;
+      c.beginPath();
+      for (var k = -1; k <= 1; k++) { c.moveTo(k * 5, waist + 3); c.lineTo(k * 7.5, bot + 6); }
+      c.stroke();
+      fillRound(c, -9.5, waist - 0.5, 19, 3.5, 1.5, dark, false);
+    } else {
+      shadedFill(c, function () {
+        c.beginPath();
+        c.moveTo(-9, waist);
+        c.lineTo(9, waist);
+        c.quadraticCurveTo(20, waist + 4, 17, bot + 8);
+        c.quadraticCurveTo(0, bot + 12, -17, bot + 8);
+        c.quadraticCurveTo(-20, waist + 4, -9, waist);
+        c.closePath();
+      }, col);
+      /* tulle layers */
+      c.save(); c.globalAlpha = 0.5; c.strokeStyle = light; c.lineWidth = 1.4;
+      c.beginPath(); c.moveTo(-14, bot + 3); c.quadraticCurveTo(0, bot + 7, 14, bot + 3); c.stroke();
+      c.restore();
+      for (var d = -12; d <= 12; d += 6) fillEllipse(c, d, bot + 1 + (d % 12 === 0 ? 3 : 0), 1.3, 1.3, light, false);
+      fillRound(c, -9.5, waist - 0.5, 19, 3.5, 1.5, dark, false);
+      fillEllipse(c, 0, waist + 1, 2, 2, PAL.sun, false);
     }
   }
 
@@ -1043,6 +1063,33 @@
     c.beginPath();
     c.ellipse(0, CH.headY, CH.headR, CH.headR + 0.5, 0, 0, Math.PI * 2);
     ink(c, 2);
+    /* soft rim light on the cheek */
+    c.save();
+    c.globalAlpha = 0.35;
+    fillEllipse(c, -5.5, CH.headY + 2, 2.6, 1.6, '#ffffff', false);
+    c.restore();
+  }
+
+  /* A glossy streak across the top of whatever hair is on the head,
+     clipped to the head so every style gets the same studio shine. */
+  function drawHairGloss(c, cust) {
+    if (cust.mannequin && !cust.showHair) return;
+    c.save();
+    c.beginPath();
+    c.ellipse(0, CH.headY - 2, CH.headR + 3, CH.headR + 3, 0, 0, Math.PI * 2);
+    c.clip();
+    c.globalAlpha = 0.28;
+    c.strokeStyle = '#ffffff';
+    c.lineWidth = 2.2;
+    c.lineCap = 'round';
+    c.beginPath();
+    c.arc(0, CH.headY + 1, CH.headR - 1.5, -2.45, -1.55);
+    c.stroke();
+    c.globalAlpha = 0.18;
+    c.beginPath();
+    c.arc(0, CH.headY + 1, CH.headR - 1.5, -1.3, -1.05);
+    c.stroke();
+    c.restore();
   }
 
   /* Arm with a hand. pose: 'down' | 'hip' | 'up' */
@@ -1117,6 +1164,7 @@
 
     drawBaseLayer(c, cust, swing);
     drawPantsTop(c, cust);
+    drawSkirt(c, cust);
     drawDress(c, cust);
     drawJacketFront(c, cust);
     drawAccessoryNeck(c, cust);
@@ -1129,6 +1177,7 @@
     drawHeadBall(c, cust);
     drawHumanEars(c, cust);
     drawHair(c, cust, false);
+    drawHairGloss(c, cust);
     drawFace(c, cust, blink, opts.t);
     drawAnimalEars(c, cust);
     drawAccessoryFace(c, cust);
