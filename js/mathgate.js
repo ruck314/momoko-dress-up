@@ -225,8 +225,15 @@
     return false;
   }
   /* One letter into a romaji buffer. st = { buf, out }: kana that
-     resolved is appended to out, letters still waiting stay in buf. */
+     resolved is appended to out, letters still waiting stay in buf.
+     The n rules follow the macOS and Google IMEs: nn is ん the moment
+     the second n lands (so おんな is typed onnna or on'na), n before
+     any consonant but y is ん, and n' is ん. */
   function romajiStep(st, ch) {
+    if (ch === "'") {
+      if (st.buf === 'n') { st.out += 'ん'; st.buf = ''; }
+      return;
+    }
     st.buf += ch;
     /* doubled consonant = っ (kk -> っk), but not n */
     if (st.buf.length >= 2 && st.buf[0] === st.buf[1] && isConsonant(st.buf[0]) && st.buf[0] !== 'n') {
@@ -238,13 +245,11 @@
       st.out += 'ん';
       st.buf = st.buf.slice(1);
     }
-    /* nn: ん, then the second n starts the next syllable if a vowel
-       follows (onna -> おんな), otherwise it is spent (kannji -> かんじ) */
-    if (st.buf.indexOf('nn') === 0) {
-      if (st.buf.length < 3) return;             /* wait for the next letter */
+    /* nn = ん, done */
+    if (st.buf === 'nn') {
       st.out += 'ん';
-      st.buf = ('aiueoy'.indexOf(st.buf[2]) >= 0) ? st.buf.slice(1) : st.buf.slice(2);
-      if (!st.buf) return;
+      st.buf = '';
+      return;
     }
     if (ROMAJI[st.buf]) {
       st.out += ROMAJI[st.buf];
@@ -258,7 +263,7 @@
     }
   }
   function romajiFlush(st) {
-    if (st.buf === 'n' || st.buf === 'nn') st.out += 'ん';
+    if (st.buf === 'n') st.out += 'ん';
     st.buf = '';
   }
   function feedRomaji(ch) {
@@ -312,6 +317,7 @@
       var ch = str[i], code = str.charCodeAt(i);
       if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122)) { romajiStep(st, ch.toLowerCase()); continue; }
       if ((code >= 0xff21 && code <= 0xff3a) || (code >= 0xff41 && code <= 0xff5a)) { romajiStep(st, String.fromCharCode((code - 0xff21) % 32 + 97)); continue; }
+      if (ch === "'" || ch === '\u2019' || ch === '\uff07') { romajiStep(st, "'"); continue; }
       flushLatin();
       if (isKanaChar(code)) out += ch;
       else if (code >= 0x30a1 && code <= 0x30f6) out += String.fromCharCode(code - 0x60);   /* katakana -> hiragana */
@@ -559,6 +565,7 @@
       if (gate.phase === 'ask') {
         if (code === 'Backspace') f.value = f.value.slice(0, -1);
         else if (fk) f.value += fk[1].toLowerCase();
+        else if (code === 'Quote') f.value += "'";
         else if (code === 'Minus') f.value += 'ー';
         sanitizeField();
       }
@@ -573,6 +580,7 @@
     }
     var km = /^Key([A-Z])$/.exec(code);
     if (km) { if (gate.phase === 'ask') feedRomaji(km[1].toLowerCase()); return true; }
+    if (code === 'Quote') { if (gate.phase === 'ask') feedRomaji("'"); return true; }
     if (code === 'Minus') { if (gate.phase === 'ask') gate.input += 'ー'; return true; }
     return false;
   }

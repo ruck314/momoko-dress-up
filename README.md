@@ -22,7 +22,7 @@ visit (PWA). Live at <https://ruck314.github.io/momoko-dress-up/>.
 | Walk                     | Arrow Keys / WASD | D-Pad (left)   |
 | Open a station / runway  | Space / Z         | DO Button      |
 | Pause / close            | Escape / P        | Pause Button   |
-| Answer a puzzle          | Digits, Enter, Backspace (romaji or your IME in Japanese) | Number pad; in Japanese the device keyboard (default) or a 50-sound keypad |
+| Answer a puzzle          | Digits, Enter, Backspace (romaji with macOS-style `nn` = ん, or your IME, in Japanese) | Number pad; in Japanese the device keyboard (default) or a 50-sound keypad |
 
 ## The puzzles
 

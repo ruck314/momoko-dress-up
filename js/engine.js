@@ -13,7 +13,7 @@
   var GAME_X = 0, GAME_Y = 0;
 
   /* Bump alongside CACHE_NAME in sw.js and tag the matching git release. */
-  Game.VERSION = 'v1.6.0';
+  Game.VERSION = 'v1.6.1';
 
   /* Post-processing switches, all on by default. A slow device (or a
      test) can turn any of them off without touching the scene code. */
