@@ -223,11 +223,20 @@
     var isKanji = m.problem && m.problem.kind === 'kanji';
     c.save();
     c.font = 'bold ' + (isKanji ? 24 : 20) + 'px ' + Game.ui.FONT;
-    var tw = c.measureText(text).width;
+    var tw = c.measureText(text + (isKanji ? '' : ' = ?')).width;
     var bw = Math.max(84, tw + 36), bh = 48;
     E.fillEllipse(c, x + 10, y + 36, 4, 4, '#ffffff');
     E.fillEllipse(c, x + 16, y + 26, 6, 6, '#ffffff');
+    c.fillStyle = 'rgba(43, 21, 48, 0.22)';
+    E.roundRect(c, x - bw / 2 + 12, y - bh / 2 + 4, bw, bh, 16);
+    c.fill();
     E.fillRound(c, x - bw / 2 + 12, y - bh / 2, bw, bh, 16, '#ffffff');
+    var bgr = c.createLinearGradient(0, y + 2, 0, y + bh / 2);
+    bgr.addColorStop(0, 'rgba(226, 85, 154, 0)');
+    bgr.addColorStop(1, 'rgba(226, 85, 154, 0.14)');
+    c.fillStyle = bgr;
+    E.roundRect(c, x - bw / 2 + 14, y - bh / 2 + 2, bw - 4, bh - 4, 14);
+    c.fill();
     c.fillStyle = PAL.ink;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
@@ -249,9 +258,18 @@
     c.translate(x, y);
     c.scale(pop, pop);
     if (ok) {
-      E.fillEllipse(c, 0, 0, 30, 30, PAL.mint);
-      c.strokeStyle = '#1f6f5a'; c.lineWidth = 6; c.lineCap = 'round'; c.lineJoin = 'round';
-      c.beginPath(); c.moveTo(-13, 1); c.lineTo(-4, 10); c.lineTo(14, -10); c.stroke();
+      /* a glossy token that sits above her head, not over her face */
+      E.fillEllipse(c, 0, -8, 23, 23, 'rgba(43, 21, 48, 0.25)', false);
+      var tg = c.createRadialGradient(-7, -19, 2, 0, -11, 24);
+      tg.addColorStop(0, '#d9fff2');
+      tg.addColorStop(0.55, PAL.mint);
+      tg.addColorStop(1, '#5fcfae');
+      E.fillEllipse(c, 0, -11, 22, 22, tg, false);
+      c.beginPath(); c.arc(0, -11, 22, 0, Math.PI * 2);
+      c.strokeStyle = '#1f6f5a'; c.lineWidth = 2.5; c.stroke();
+      c.lineWidth = 5; c.lineCap = 'round'; c.lineJoin = 'round';
+      c.beginPath(); c.moveTo(-10, -10); c.lineTo(-3, -3); c.lineTo(10.5, -18.5); c.stroke();
+      E.fillEllipse(c, -9, -24, 5, 2.4, 'rgba(255, 255, 255, 0.6)', false);
       c.font = 'bold 15px ' + Game.ui.FONT;
       c.fillStyle = '#ffffff'; c.textAlign = 'center'; c.textBaseline = 'middle';
       c.lineWidth = 4; c.strokeStyle = '#1f6f5a';
@@ -280,7 +298,13 @@
       c.font = 'bold 13px ' + Game.ui.FONT;
       var ans = m.problem.text + (m.problem.kind === 'kanji' ? ' = ' : ' = ') + m.problem.answer;
       var bw = c.measureText(ans).width + 22;
+      c.fillStyle = 'rgba(43, 21, 48, 0.22)';
+      E.roundRect(c, x - bw / 2, y - 147.5, bw, 24, 12);
+      c.fill();
       E.fillRound(c, x - bw / 2, y - 150, bw, 24, 12, ok ? PAL.mint : PAL.peach);
+      c.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      E.roundRect(c, x - bw / 2 + 5, y - 148, bw - 10, 9, 5);
+      c.fill();
       c.fillStyle = PAL.ink; c.textAlign = 'center'; c.textBaseline = 'middle';
       c.fillText(ans, x, y - 138);
       c.restore();
@@ -310,7 +334,7 @@
     c.font = 'bold 18px ' + Game.ui.FONT;
     var w = c.measureText(T('runwayNow') + ' ' + name).width + 90;
     var x = (W - w) / 2, y = 10;
-    E.fillRound(c, x, y, w, 46, 23, 'rgba(255,246,236,0.95)');
+    Game.ui.pill(c, x, y, w, 46);
     E.drawPortrait(c, x + 26, y + 23, 36, m.look);
     c.fillStyle = PAL.ink;
     c.textAlign = 'left';
@@ -335,8 +359,7 @@
     c.fillStyle = 'rgba(43, 21, 48, 0.55)';
     c.fillRect(V.x, V.y, V.w, V.h);
     Game.ui.panel(c, 120, 60, 560, 380, 'rgba(255,248,243,0.97)');
-    c.fillStyle = PAL.pink;
-    E.roundRect(c, 128, 68, 544, 48, 10); c.fill();
+    Game.ui.ribbon(c, 128, 68, 544, 48, 10, PAL.pink);
     c.fillStyle = PAL.ink;
     c.textAlign = 'center'; c.textBaseline = 'middle';
     c.font = 'bold 26px ' + Game.ui.FONT;
@@ -361,8 +384,7 @@
     c.fillStyle = 'rgba(43, 21, 48, 0.5)';
     c.fillRect(V.x, V.y, V.w, V.h);
     Game.ui.panel(c, 110, 36, 580, 420, 'rgba(255,248,243,0.97)');
-    c.fillStyle = PAL.sun;
-    E.roundRect(c, 118, 44, 564, 46, 10); c.fill();
+    Game.ui.ribbon(c, 118, 44, 564, 46, 10, PAL.sun);
     c.fillStyle = PAL.ink;
     c.textAlign = 'center'; c.textBaseline = 'middle';
     c.font = 'bold 24px ' + Game.ui.FONT;
@@ -371,9 +393,26 @@
     /* the big ribbon for Momoko */
     var place = show.place;
     var rib = place === 1 ? PAL.gold : place === 2 ? '#c9ced6' : place === 3 ? '#d99a6c' : PAL.lavender;
-    E.fillEllipse(c, 200, 160, 48, 48, rib);
-    E.fillEllipse(c, 200, 160, 36, 36, E.shade(rib, 25), false);
+    /* a struck medal: ribbon tails behind, a bevelled rim, a domed face */
+    E.softShadow(c, 200, 214, 52, 12, 0.2);
     E.fillPath(c, [[180, 196], [190, 240], [200, 226], [210, 240], [220, 196]], PAL.pinkDeep);
+    E.fillPath(c, [[200, 198], [200, 226], [210, 240], [220, 196]], 'rgba(90, 10, 60, 0.28)', true, false);
+    var mr = c.createLinearGradient(160, 116, 240, 204);
+    mr.addColorStop(0, E.shade(rib, 45));
+    mr.addColorStop(0.5, rib);
+    mr.addColorStop(1, E.shade(rib, -28));
+    c.beginPath(); c.arc(200, 160, 48, 0, Math.PI * 2);
+    c.fillStyle = mr; c.fill();
+    c.fillStyle = rib; E.ink(c, 2);
+    var mf = c.createRadialGradient(188, 146, 4, 200, 160, 38);
+    mf.addColorStop(0, E.shade(rib, 62));
+    mf.addColorStop(0.6, E.shade(rib, 26));
+    mf.addColorStop(1, E.shade(rib, 4));
+    E.fillEllipse(c, 200, 160, 36, 36, mf, false);
+    c.beginPath(); c.arc(200, 160, 36, 0, Math.PI * 2);
+    c.strokeStyle = E.shade(rib, -30); c.globalAlpha = 0.55; c.lineWidth = 1.5; c.stroke(); c.globalAlpha = 1;
+    c.beginPath(); c.arc(200, 160, 42, Math.PI * 1.08, Math.PI * 1.45);
+    c.strokeStyle = 'rgba(255, 255, 255, 0.75)'; c.lineWidth = 3; c.lineCap = 'round'; c.stroke();
     c.fillStyle = PAL.ink;
     c.font = 'bold 28px ' + Game.ui.FONT;
     c.fillText(T('ordinal_' + place), 200, 162);
@@ -381,8 +420,8 @@
     c.fillText(T('runwayYourPlace'), 200, 262);
     c.font = 'bold 14px ' + Game.ui.FONT;
     c.fillStyle = PAL.pinkDeep;
-    Game.ui.fitFont(c, T(place === 1 ? 'runwayWinner' : 'runwayGreat'), 220, 14, 'bold', 10);
-    var msgLines = Game.ui.layoutLines(c, T(place === 1 ? 'runwayWinner' : 'runwayGreat'), 220);
+    Game.ui.fitFont(c, T(place === 1 ? 'runwayWinner' : 'runwayGreat'), 160, 14, 'bold', 10);
+    var msgLines = Game.ui.layoutLines(c, T(place === 1 ? 'runwayWinner' : 'runwayGreat'), 160);
     for (var l = 0; l < msgLines.length; l++) c.fillText(msgLines[l], 200, 286 + l * 16);
     E.drawCharacter(c, 200, 412, Game.look, 0, 1, 1.4, false, Math.max(0, Math.sin(t / 8)) * 8, { pose: place <= 3 ? 'wave' : 'walk', t: t });
 
@@ -390,7 +429,12 @@
     for (var i = 0; i < show.ranking.length; i++) {
       var m = show.ranking[i];
       var y = 112 + i * 54;
-      var rowFill = m.isPlayer ? 'rgba(255, 210, 74, 0.35)' : 'rgba(255,255,255,0.7)';
+      c.fillStyle = 'rgba(43, 21, 48, 0.14)';
+      E.roundRect(c, 330, y + 3, 340, 48, 12);
+      c.fill();
+      var rowFill = c.createLinearGradient(0, y, 0, y + 48);
+      if (m.isPlayer) { rowFill.addColorStop(0, '#fff6cf'); rowFill.addColorStop(1, '#ffdf8a'); }
+      else { rowFill.addColorStop(0, '#ffffff'); rowFill.addColorStop(1, '#fbe9f1'); }
       E.fillRound(c, 330, y, 340, 48, 12, rowFill);
       c.fillStyle = PAL.ink;
       c.textAlign = 'left'; c.textBaseline = 'middle';
@@ -402,6 +446,7 @@
       c.fillText(modelName(m), 440, y + 24);
       var ok = m.result && m.result.ok;
       E.fillEllipse(c, 640, y + 24, 14, 14, ok ? PAL.mint : PAL.peach);
+      E.fillEllipse(c, 636, y + 17, 5, 2.6, 'rgba(255, 255, 255, 0.5)', false);
       c.strokeStyle = ok ? '#1f6f5a' : '#a0433a'; c.lineWidth = 3; c.lineCap = 'round';
       c.beginPath();
       if (ok) { c.moveTo(634, y + 24); c.lineTo(638, y + 29); c.lineTo(647, y + 18); }

@@ -180,6 +180,76 @@
     E.ink(c, 2);
   }
 
+  /* The coloured header bar of a card: lit along its top, shaded at its
+     foot, with the same glossy cap as the buttons so every piece of the
+     interface is cut from one material. `col` is a hex colour. */
+  function ribbon(c, x, y, w, h, r, col, inkW) {
+    c.save();
+    c.fillStyle = 'rgba(43, 21, 48, 0.16)';
+    E.roundRect(c, x, y + 2.5, w, h, r);
+    c.fill();
+    var g = c.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, E.shade(col, 26));
+    g.addColorStop(0.5, col);
+    g.addColorStop(1, E.shade(col, -16));
+    c.fillStyle = g;
+    E.roundRect(c, x, y, w, h, r);
+    c.fill();
+    var cap = c.createLinearGradient(0, y + 2, 0, y + h * 0.48);
+    cap.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
+    cap.addColorStop(1, 'rgba(255, 255, 255, 0.1)');
+    c.fillStyle = cap;
+    E.roundRect(c, x + 4, y + 3, w - 8, h * 0.42, Math.max(2, r - 4));
+    c.fill();
+    c.fillStyle = col;
+    E.roundRect(c, x, y, w, h, r);
+    if (inkW) E.ink(c, inkW);
+    else { c.strokeStyle = E.shade(col, -34); c.globalAlpha = 0.6; c.lineWidth = 1.2; c.stroke(); }
+    c.restore();
+  }
+
+  /* A white field sunk into its card: the top lip throws a soft shadow
+     inside it and the lower edge catches a line of light. */
+  function well(c, x, y, w, h, r) {
+    c.save();
+    c.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    E.roundRect(c, x, y + 2, w, h, r);
+    c.fill();
+    E.fillRound(c, x, y, w, h, r, '#ffffff', false);
+    E.roundRect(c, x, y, w, h, r);
+    c.clip();
+    var g = c.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, 'rgba(110, 50, 120, 0.26)');
+    g.addColorStop(Math.min(0.45, 10 / h), 'rgba(110, 50, 120, 0)');
+    g.addColorStop(0.7, 'rgba(255, 214, 232, 0)');
+    g.addColorStop(1, 'rgba(255, 214, 232, 0.4)');
+    c.fillStyle = g;
+    c.fillRect(x, y, w, h);
+    c.restore();
+    c.fillStyle = '#ffffff';
+    E.roundRect(c, x, y, w, h, r);
+    E.ink(c, 2);
+  }
+
+  /* A floating cream pill (HUD badge, announcer): drop shadow, a lit
+     top and an inked edge. */
+  function pill(c, x, y, w, h) {
+    c.save();
+    c.fillStyle = 'rgba(43, 21, 48, 0.2)';
+    E.roundRect(c, x, y + 3, w, h, h / 2);
+    c.fill();
+    var g = c.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(0.55, '#fff6ec');
+    g.addColorStop(1, '#f6dfd8');
+    c.fillStyle = g;
+    E.roundRect(c, x, y, w, h, h / 2);
+    c.fill();
+    c.fillStyle = '#fff6ec';
+    E.ink(c, 2);
+    c.restore();
+  }
+
   /* Frosted glass: whatever is already on the canvas under the rect is
      grabbed, shrunk, blurred and laid back down with a milky tint, so a
      card floats in front of the room instead of being pasted onto it.
@@ -309,10 +379,14 @@
     c.font = 'bold 15px ' + FONT;
     var text = String(count) + (label ? '  ' + label : '');
     var w = c.measureText(text).width + 44;
-    E.fillRound(c, x, y, w, 30, 15, 'rgba(255, 246, 236, 0.95)');
-    c.fillStyle = PAL.sun;
+    pill(c, x, y, w, 30);
+    var sg = c.createLinearGradient(0, y + 5, 0, y + 25);
+    sg.addColorStop(0, '#ffe98a');
+    sg.addColorStop(1, PAL.gold);
+    c.fillStyle = sg;
     E.star(c, x + 17, y + 15, 10);
-    c.strokeStyle = PAL.ink; c.lineWidth = 1.5; c.stroke();
+    c.strokeStyle = '#8a5a14'; c.lineWidth = 1.5; c.lineJoin = 'round'; c.stroke();
+    E.fillEllipse(c, x + 15, y + 11.5, 2, 1.3, 'rgba(255, 255, 255, 0.75)', false);
     c.fillStyle = PAL.ink;
     c.textAlign = 'left';
     c.textBaseline = 'middle';
@@ -848,7 +922,7 @@
     frostPanel(c, 284, 52, 500, 352, 14, 'rgba(255, 250, 253, 0.56)', 8);
 
     /* header: the station's own sign colours */
-    E.fillRound(c, 14, 10, 262, 38, 12, st.hue);
+    ribbon(c, 14, 10, 262, 38, 12, st.hue, 2);
     c.fillStyle = PAL.ink;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
@@ -870,8 +944,23 @@
     /* curtain swags */
     E.fillRound(c, PX - 10, PY - 10, 40, PH + 20, 12, PAL.pink);
     E.fillRound(c, PX + PW - 30, PY - 10, 40, PH + 20, 12, PAL.pink);
+    /* the drapes hang in folds: a lit ridge and a deep valley, twice */
+    for (var cs = 0; cs < 2; cs++) {
+      var cx0 = cs ? PX + PW - 28 : PX, cg = c.createLinearGradient(cx0, 0, cx0 + 28, 0);
+      cg.addColorStop(0, 'rgba(120, 20, 90, 0.3)');
+      cg.addColorStop(0.22, 'rgba(255, 255, 255, 0.34)');
+      cg.addColorStop(0.5, 'rgba(120, 20, 90, 0.26)');
+      cg.addColorStop(0.76, 'rgba(255, 255, 255, 0.3)');
+      cg.addColorStop(1, 'rgba(120, 20, 90, 0.3)');
+      c.fillStyle = cg;
+      c.fillRect(cx0, PY, 28, PH);
+    }
     var pgy = PY + PH - 54;
-    c.fillStyle = PAL.floor; c.fillRect(PX, pgy, PW, 60);
+    var fg2 = c.createLinearGradient(0, pgy, 0, pgy + 54);
+    fg2.addColorStop(0, '#d79ab2');
+    fg2.addColorStop(0.25, PAL.floor);
+    fg2.addColorStop(1, '#f6cfdc');
+    c.fillStyle = fg2; c.fillRect(PX, pgy, PW, 60);
     c.fillStyle = 'rgba(255,255,255,0.5)'; c.fillRect(PX, pgy, PW, 3);
     var pcx = PX + PW / 2;
     var pcy = PY + PH - 36;
@@ -1098,9 +1187,14 @@
     c.fillStyle = 'rgba(74, 42, 64, 0.22)';
     E.roundRect(c, x, y + 3, w, 30, 15);
     c.fill();
-    c.fillStyle = 'rgba(255, 246, 236, 0.97)';
+    var pg = c.createLinearGradient(0, y, 0, y + 30);
+    pg.addColorStop(0, '#ffffff');
+    pg.addColorStop(0.55, '#fff6ec');
+    pg.addColorStop(1, '#f6dfd8');
+    c.fillStyle = pg;
     E.roundRect(c, x, y, w, 30, 15);
     c.fill();
+    c.fillStyle = '#fff6ec';
     E.ink(c, 2);
     var kx = x + 8, ky = y + 6;
     if (touch) {
@@ -1179,7 +1273,7 @@
     setView: setView,
     VIEW: VIEW,
     TITLE_GROUND: TITLE_GROUND,
-    button: button, hit: hit, panel: panel, frostPanel: frostPanel, multiline: multiline, swatch: swatch,
+    button: button, hit: hit, panel: panel, ribbon: ribbon, well: well, pill: pill, frostPanel: frostPanel, multiline: multiline, swatch: swatch,
     FONT: FONT, pointerOver: pointerOver, fitFont: fitFont, layoutLines: layoutLines,
     beginFrame: function () { anyHot = false; },
     isHot: function () { return anyHot; },

@@ -32,7 +32,7 @@
     return cv;
   }
   function drawSprite(c, spr, x, y) { c.drawImage(spr, x, y, spr.lw, spr.lh); }
-  function clearSpriteCache() { spriteCache = {}; }
+  function clearSpriteCache() { spriteCache = {}; stillCache = {}; stillCount = 0; }
 
   /* ---- Shape helpers ---- */
   function seeded(seed) {
@@ -239,6 +239,8 @@
   function celBands(c, pathFn, col, dx, dy, warm, strength) {
     if (typeof col !== 'string' || col.charAt(0) !== '#') return;
     var s = strength || 1;
+    /* one clip to the shape itself; the two lighter bands are then just
+       the same outline filled a step and a half toward the light */
     c.save();
     pathFn();
     c.clip();
@@ -246,16 +248,12 @@
     c.fillRect(-120, -140, 240, 280);
     c.translate(dx, dy);
     pathFn();
-    c.translate(-dx, -dy);
-    c.clip();
     c.fillStyle = shadowCached(col, Math.round(11 * s), warm);
-    c.fillRect(-120, -140, 240, 280);
+    c.fill();
     c.translate(dx * 0.45, dy * 0.45);
     pathFn();
-    c.translate(-dx * 0.45, -dy * 0.45);
-    c.clip();
     c.fillStyle = col;
-    c.fillRect(-120, -140, 240, 280);
+    c.fill();
     c.restore();
   }
 
@@ -350,6 +348,28 @@
     path();
     c.fillStyle = col;
     ink(c, inkW || 2);
+  }
+  /* A small prop -- a shoe, a hat, a bag: the same stepped shadow as the
+     figure wearing it, without the torso's studio lighting. dx/dy point
+     toward the light. */
+  function celShape(c, pathFn, col, inkW, dx, dy) {
+    pathFn();
+    c.fillStyle = col;
+    c.fill();
+    celBands(c, pathFn, col, dx === undefined ? -1.3 : dx, dy === undefined ? -1.5 : dy, false, 1);
+    pathFn();
+    c.fillStyle = col;
+    ink(c, inkW || 2);
+  }
+  function ellPath(c, cx, cy, rx, ry) {
+    return function () { c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); };
+  }
+  /* the small hard highlight of a polished surface */
+  function glint(c, x, y, rx, ry, a) {
+    c.save();
+    c.globalAlpha = a || 0.5;
+    fillEllipse(c, x, y, rx, ry, '#ffffff', false);
+    c.restore();
   }
   function polyPath(c, pts) {
     return function () {
@@ -584,8 +604,8 @@
         }
         break;
       case 'shorts':
-        fillRound(c, lx - 1, bot - 3, 8, 8, 2.5, col);
-        fillRound(c, rx - 1, bot - 3, 8, 8, 2.5, col);
+        volumeRound(c, lx - 1, bot - 3, 8, 8, 2.5, col);
+        volumeRound(c, rx - 1, bot - 3, 8, 8, 2.5, col);
         fillRound(c, -8, bot - 4, 16, 3, 1.5, dark, false);
         break;
       case 'overalls':
@@ -636,7 +656,7 @@
     var col = cust.pantsColor, top = CH.torsoTop;
     fillRound(c, -8, top + 2, 3.5, 9, 1.5, col);
     fillRound(c, 4.5, top + 2, 3.5, 9, 1.5, col);
-    fillRound(c, -9, top + 8, 18, 10, 3, col);
+    celShape(c, rrPath(c, -9, top + 8, 18, 10, 3), col, 2, -2, -1.6);
     fillRound(c, -4, top + 11, 8, 5, 2, shade(col, -20));
     fillEllipse(c, -6, top + 9, 1.3, 1.3, PAL.sun, false);
     fillEllipse(c, 6, top + 9, 1.3, 1.3, PAL.sun, false);
@@ -647,8 +667,8 @@
     var top = CH.torsoTop, bot = CH.torsoBot;
     var cream = cust.mannequin ? '#f7f0f6' : PAL.cream;
     if (cust.pants === 'none') {
-      fillRound(c, -8 + swing * 0.5, bot - 3, 7, 7, 2.5, cream);
-      fillRound(c, 1 - swing * 0.5, bot - 3, 7, 7, 2.5, cream);
+      volumeRound(c, -8 + swing * 0.5, bot - 3, 7, 7, 2.5, cream);
+      volumeRound(c, 1 - swing * 0.5, bot - 3, 7, 7, 2.5, cream);
     }
     if (cust.dress === 'none') {
       shadedFill(c, rrPath(c, -9, top, 18, (bot + 2) - top, 4), cream, 2, { strength: 0.8 });
@@ -749,8 +769,8 @@
       case 'kimono':
         shadedFill(c, polyPath(c, [[-9, top], [9, top], [13, bot + 10], [-13, bot + 10]]), col);
         /* wide sleeves */
-        fillRound(c, -19, top + 3, 9, 15, 3, col);
-        fillRound(c, 10, top + 3, 9, 15, 3, col);
+        volumeRound(c, -19, top + 3, 9, 15, 3, col);
+        volumeRound(c, 10, top + 3, 9, 15, 3, col);
         /* crossed collar */
         fillPath(c, [[-7, top], [0, top + 9], [-2, top + 10], [-9, top + 1]], PAL.cream);
         fillPath(c, [[7, top], [0, top + 9], [2, top + 10], [9, top + 1]], PAL.cream);
@@ -807,8 +827,8 @@
     var i;
     switch (cust.jacket) {
       case 'denim':
-        fillPath(c, [[-10, top], [-3, top], [-3, bot + 4], [-10, bot + 4]], col);
-        fillPath(c, [[10, top], [3, top], [3, bot + 4], [10, bot + 4]], col);
+        shadedFill(c, polyPath(c, [[-10, top], [-3, top], [-3, bot + 4], [-10, bot + 4]]), col, 2, { dx: -1.6, dy: -2 });
+        shadedFill(c, polyPath(c, [[10, top], [3, top], [3, bot + 4], [10, bot + 4]]), col, 2, { dx: -1.6, dy: -2 });
         fillPath(c, [[-10, top], [-3, top], [-7, top + 5]], light);
         fillPath(c, [[10, top], [3, top], [7, top + 5]], light);
         fillRound(c, -9, top + 7, 5, 4, 1, dark, false);
@@ -821,8 +841,8 @@
         c.beginPath(); c.moveTo(-3, top + 2); c.lineTo(-3, top + 9); c.moveTo(3, top + 2); c.lineTo(3, top + 9); c.stroke();
         break;
       case 'cardigan':
-        fillPath(c, [[-11, top], [-2, top], [-2, bot + 5], [-11, bot + 5]], col);
-        fillPath(c, [[11, top], [2, top], [2, bot + 5], [11, bot + 5]], col);
+        shadedFill(c, polyPath(c, [[-11, top], [-2, top], [-2, bot + 5], [-11, bot + 5]]), col, 2, { dx: -1.8, dy: -2 });
+        shadedFill(c, polyPath(c, [[11, top], [2, top], [2, bot + 5], [11, bot + 5]]), col, 2, { dx: -1.8, dy: -2 });
         c.strokeStyle = dark; c.lineWidth = 1.2;
         for (i = top + 4; i < bot + 4; i += 4) { c.beginPath(); c.moveTo(-10, i); c.lineTo(-3, i); c.moveTo(3, i); c.lineTo(10, i); c.stroke(); }
         for (i = 0; i < 3; i++) fillEllipse(c, -2.5, top + 5 + i * 5, 1.2, 1.2, PAL.cream, false);
@@ -844,8 +864,8 @@
         fillRound(c, -1.5, top, 3, (bot + 4) - top, 1.5, light, false);
         break;
       case 'blazer':
-        fillPath(c, [[-11, top], [-2, top], [-2, bot + 4], [-11, bot + 4]], col);
-        fillPath(c, [[11, top], [2, top], [2, bot + 4], [11, bot + 4]], col);
+        shadedFill(c, polyPath(c, [[-11, top], [-2, top], [-2, bot + 4], [-11, bot + 4]]), col, 2, { dx: -1.8, dy: -2 });
+        shadedFill(c, polyPath(c, [[11, top], [2, top], [2, bot + 4], [11, bot + 4]]), col, 2, { dx: -1.8, dy: -2 });
         fillPath(c, [[-10, top], [-2, top], [-2, top + 8]], dark);
         fillPath(c, [[10, top], [2, top], [2, top + 8]], dark);
         fillEllipse(c, 3, top + 11, 1.3, 1.3, PAL.gold, false);
@@ -874,19 +894,21 @@
         fillEllipse(c, x + 1.5, y - 2.5, 0.8, 0.8, shade(skin, -14), false);
         break;
       case 'maryJane':
-        fillRound(c, x - 5, y - 5, 10, 6, 3, col);
+        celShape(c, rrPath(c, x - 5, y - 5, 10, 6, 3), col, 2, -1.2, -1.3);
         c.strokeStyle = shade(col, -30); c.lineWidth = 1.5;
         c.beginPath(); c.moveTo(x - 4, y - 4); c.lineTo(x + 4, y - 4); c.stroke();
+        glint(c, x - 2, y - 2.2, 1.7, 0.8, 0.55);
         break;
       case 'sneaker':
-        fillRound(c, x - 6, y - 6, 12, 7, 3, col);
+        celShape(c, rrPath(c, x - 6, y - 6, 12, 7, 3), col, 2, -1.3, -1.4);
         fillRound(c, x - 6, y - 2, 12, 3, 1.5, PAL.cream);
         c.strokeStyle = PAL.cream; c.lineWidth = 1;
         c.beginPath(); c.moveTo(x - 2, y - 5); c.lineTo(x + 1, y - 3.5); c.moveTo(x - 2, y - 3.5); c.lineTo(x + 1, y - 5); c.stroke();
         break;
       case 'boots':
-        fillRound(c, x - 5, y - 11, 10, 12, 3, col);
+        celShape(c, rrPath(c, x - 5, y - 11, 10, 12, 3), col, 2, -1.6, -1);
         fillRound(c, x - 6, y - 3, 12, 4, 2, shade(col, -30));
+        glint(c, x - 2.6, y - 7.5, 0.8, 2, 0.35);
         break;
       case 'sandals':
         fillRound(c, x - 5, y - 2, 10, 3, 1.5, col);
@@ -895,24 +917,27 @@
         fillEllipse(c, x, y - 6, 1.3, 1.3, PAL.sun, false);
         break;
       case 'rainBoots':
-        fillRound(c, x - 5, y - 13, 10, 14, 3, col);
+        celShape(c, rrPath(c, x - 5, y - 13, 10, 14, 3), col, 2, -1.6, -1);
         fillRound(c, x - 6, y - 3, 12, 4, 2, shade(col, -30));
         c.save(); c.globalAlpha = 0.5; fillRound(c, x - 3, y - 11, 2, 7, 1, '#ffffff', false); c.restore();
         break;
       case 'ballet':
-        fillRound(c, x - 5, y - 4, 10, 5, 2.5, col);
+        celShape(c, rrPath(c, x - 5, y - 4, 10, 5, 2.5), col, 2, -1.1, -1.1);
+        glint(c, x - 2.4, y - 2.6, 1.4, 0.6, 0.5);
         c.strokeStyle = col; c.lineWidth = 1.3;
         c.beginPath(); c.moveTo(x - 3, y - 4); c.lineTo(x + 2, y - 9); c.moveTo(x + 3, y - 4); c.lineTo(x - 2, y - 9); c.stroke();
         fillEllipse(c, x, y - 3.5, 1.2, 1, shade(col, -25), false);
         break;
       case 'rollerSkates':
-        fillRound(c, x - 5, y - 9, 10, 9, 3, col);
+        celShape(c, rrPath(c, x - 5, y - 9, 10, 9, 3), col, 2, -1.5, -1.1);
         fillRound(c, x - 6, y - 3, 12, 3, 1.5, PAL.cream);
         fillEllipse(c, x - 3, y + 1, 2.2, 2.2, PAL.sun);
         fillEllipse(c, x + 3, y + 1, 2.2, 2.2, PAL.sun);
+        glint(c, x - 3.6, y + 0.4, 0.7, 0.6, 0.7);
+        glint(c, x + 2.4, y + 0.4, 0.7, 0.6, 0.7);
         break;
       case 'slippers':
-        fillEllipse(c, x, y - 3, 6, 3.8, col);
+        celShape(c, ellPath(c, x, y - 3, 6, 3.8), col, 2, -1.3, -1.2);
         fillEllipse(c, x, y - 3.5, 3.6, 2, shade(col, 30), false);
         fillEllipse(c, x - 2, y - 8, 1.3, 3, col);
         fillEllipse(c, x + 2, y - 8, 1.3, 3, col);
@@ -928,12 +953,12 @@
     var i;
     switch (cust.hat) {
       case 'strawHat':
-        fillEllipse(c, 0, hy - 6, r + 10, 5, '#e8c76a');
-        fillEllipse(c, 0, hy - 11, r - 2, 7, '#f0d585');
+        celShape(c, ellPath(c, 0, hy - 6, r + 10, 5), '#e8c76a', 2, -1.5, -1.6);
+        celShape(c, ellPath(c, 0, hy - 11, r - 2, 7), '#f0d585', 2, -2, -2);
         fillRound(c, -r + 1, hy - 10, (r - 1) * 2, 4, 2, col);
         break;
       case 'beret':
-        fillEllipse(c, -1, hy - 10, r + 2, 7, col);
+        volEllipse(c, -1, hy - 10, r + 2, 7, col);
         fillEllipse(c, 6, hy - 15, 2.5, 2.5, dark);
         break;
       case 'flowerCrown':
@@ -945,35 +970,35 @@
         }
         break;
       case 'tiara':
-        fillPath(c, [[-9, hy - 8], [-6, hy - 15], [-3, hy - 10], [0, hy - 19], [3, hy - 10], [6, hy - 15], [9, hy - 8]], PAL.gold);
+        celShape(c, polyPath(c, [[-9, hy - 8], [-6, hy - 15], [-3, hy - 10], [0, hy - 19], [3, hy - 10], [6, hy - 15], [9, hy - 8]]), PAL.gold, 2, -1.1, -0.9);
         fillEllipse(c, 0, hy - 15, 1.8, 1.8, col, false);
+        glint(c, -0.6, hy - 15.6, 0.6, 0.5, 0.8);
         fillEllipse(c, -6, hy - 12.5, 1.1, 1.1, PAL.sky, false);
         fillEllipse(c, 6, hy - 12.5, 1.1, 1.1, PAL.sky, false);
         break;
       case 'bigBow':
-        fillEllipse(c, -7, hy - 13, 6.5, 4.5, col);
-        fillEllipse(c, 7, hy - 13, 6.5, 4.5, col);
+        volEllipse(c, -7, hy - 13, 6.5, 4.5, col);
+        volEllipse(c, 7, hy - 13, 6.5, 4.5, col);
         fillEllipse(c, 0, hy - 13, 2.6, 2.6, dark);
         break;
       case 'cap':
-        c.beginPath(); c.arc(0, hy - 6, r + 1, Math.PI, Math.PI * 2); c.closePath();
-        c.fillStyle = col; c.fill(); ink(c, 2);
+        celShape(c, function () { c.beginPath(); c.arc(0, hy - 6, r + 1, Math.PI, Math.PI * 2); c.closePath(); }, col, 2, -2.4, -1.2);
+        glint(c, -5, hy - 13, 2.6, 1.3, 0.3);
         fillRound(c, 2, hy - 8, r + 6, 4, 2, dark);
         fillEllipse(c, 0, hy - r - 7, 1.6, 1.6, dark, false);
         break;
       case 'beanie':
-        c.beginPath(); c.arc(0, hy - 5, r + 1.5, Math.PI, Math.PI * 2); c.closePath();
-        c.fillStyle = col; c.fill(); ink(c, 2);
+        celShape(c, function () { c.beginPath(); c.arc(0, hy - 5, r + 1.5, Math.PI, Math.PI * 2); c.closePath(); }, col, 2, -2.4, -1.2);
         fillRound(c, -r - 1.5, hy - 8, (r + 1.5) * 2, 5, 2, dark);
-        fillEllipse(c, 0, hy - r - 7, 4, 4, light);
+        volEllipse(c, 0, hy - r - 7, 4, 4, light);
         break;
       case 'partyHat':
-        fillPath(c, [[-7, hy - 9], [7, hy - 9], [0, hy - 30]], col);
+        celShape(c, polyPath(c, [[-7, hy - 9], [7, hy - 9], [0, hy - 30]]), col, 2, -2.2, 0);
         for (i = 0; i < 3; i++) fillEllipse(c, -2 + (i % 2) * 4, hy - 14 - i * 5, 1.3, 1.3, PAL.cream, false);
         fillEllipse(c, 0, hy - 30, 2.5, 2.5, PAL.sun);
         break;
       case 'unicorn':
-        fillPath(c, [[-3, hy - 11], [3, hy - 11], [0, hy - 28]], col);
+        celShape(c, polyPath(c, [[-3, hy - 11], [3, hy - 11], [0, hy - 28]]), col, 2, -1.2, 0);
         c.strokeStyle = shade(col, -25); c.lineWidth = 1;
         for (i = 1; i <= 3; i++) { c.beginPath(); c.moveTo(-2.5 + i * 0.5, hy - 11 - i * 4); c.lineTo(2.5 - i * 0.5, hy - 12 - i * 4); c.stroke(); }
         fillEllipse(c, -9, hy - 10, 3, 4.5, PAL.cream);
@@ -988,7 +1013,7 @@
   function drawBagBack(c, cust) {
     if (cust.bag !== 'backpack') return;
     var col = cust.bagColor;
-    fillRound(c, -16, CH.torsoTop + 2, 9, 15, 3, col);
+    celShape(c, rrPath(c, -16, CH.torsoTop + 2, 9, 15, 3), col, 2, -1.6, -1.4);
     fillRound(c, -15, CH.torsoTop + 7, 7, 5, 2, shade(col, -25));
   }
   function drawBagFront(c, cust, handX, handY) {
@@ -1002,27 +1027,30 @@
       case 'purse':
         c.strokeStyle = dark; c.lineWidth = 1.6;
         c.beginPath(); c.moveTo(-8, top + 1); c.lineTo(12, bot - 2); c.stroke();
-        fillRound(c, 9, bot - 4, 9, 7, 3, col);
+        celShape(c, rrPath(c, 9, bot - 4, 9, 7, 3), col, 2, -1.3, -1.4);
+        glint(c, 11.4, bot - 1.6, 1.4, 0.7, 0.5);
         fillEllipse(c, 13.5, bot - 4, 1.2, 1.2, PAL.gold, false);
         break;
       case 'messenger':
         c.strokeStyle = dark; c.lineWidth = 2;
         c.beginPath(); c.moveTo(-8, top + 1); c.lineTo(13, bot - 3); c.stroke();
-        fillRound(c, 8, bot - 5, 12, 10, 2.5, col);
+        celShape(c, rrPath(c, 8, bot - 5, 12, 10, 2.5), col, 2, -1.5, -1.5);
         fillRound(c, 8, bot - 5, 12, 4, 2, dark);
         break;
       case 'heartBag':
         c.strokeStyle = dark; c.lineWidth = 1.6;
         c.beginPath(); c.moveTo(-8, top + 1); c.lineTo(12, bot - 3); c.stroke();
-        heart(c, 13, bot - 1, 5, col, 1.5);
+        celShape(c, function () { heartPath(c, 13, bot - 1, 5); }, col, 1.5, -1, -1.1);
+        glint(c, 11, bot - 3, 1, 0.7, 0.55);
         break;
       case 'starBag':
         c.strokeStyle = dark; c.lineWidth = 1.6;
         c.beginPath(); c.moveTo(-8, top + 1); c.lineTo(12, bot - 3); c.stroke();
         c.fillStyle = col; star(c, 13, bot - 1, 6.5); ink(c, 1.5);
+        glint(c, 12, bot - 2.4, 1.1, 0.8, 0.5);
         break;
       case 'tote':
-        fillRound(c, handX - 1, handY + 1, 11, 11, 2, col);
+        celShape(c, rrPath(c, handX - 1, handY + 1, 11, 11, 2), col, 2, -1.5, -1.5);
         c.strokeStyle = dark; c.lineWidth = 1.6;
         c.beginPath(); c.arc(handX + 4.5, handY + 1, 3.5, Math.PI, 0); c.stroke();
         fillEllipse(c, handX + 4.5, handY + 6.5, 2, 2, PAL.cream, false);
@@ -1056,8 +1084,8 @@
     var col = cust.accColor, top = CH.torsoTop;
     switch (cust.accessory) {
       case 'scarf':
-        fillRound(c, -10, top - 3, 20, 6, 3, col);
-        fillPath(c, [[4, top + 2], [10, top + 3], [8, top + 15], [3, top + 13]], col);
+        celShape(c, polyPath(c, [[4, top + 2], [10, top + 3], [8, top + 15], [3, top + 13]]), col, 2, -1.4, -1);
+        celShape(c, rrPath(c, -10, top - 3, 20, 6, 3), col, 2, -1.2, -1.5);
         c.strokeStyle = shade(col, -20); c.lineWidth = 1;
         c.beginPath(); c.moveTo(4.5, top + 12); c.lineTo(8, top + 12.5); c.stroke();
         break;
@@ -1550,14 +1578,42 @@
     }
   }
 
+  /* Still tiles and portraits are whole characters that never move, so
+     each is painted once into a sprite and blitted after that. The memo
+     is keyed by the look itself and simply starts over when it fills. */
+  var stillCache = {}, stillCount = 0;
+  function stillSprite(key, size, drawFn) {
+    key += '@' + Math.min(3, window.devicePixelRatio || 1);
+    var spr = stillCache[key];
+    if (spr) return spr;
+    if (stillCount >= 160) { stillCache = {}; stillCount = 0; }
+    var dpr = Math.min(3, window.devicePixelRatio || 1);
+    spr = document.createElement('canvas');
+    spr.lw = spr.lh = 2 * Math.ceil(size / 2) + 6;   /* even, with a margin for the outline */
+    spr.width = spr.height = Math.ceil(spr.lw * dpr);
+    var g = spr.getContext('2d');
+    g.scale(dpr, dpr);
+    drawFn(g, spr.lw / 2, spr.lh / 2);
+    stillCache[key] = spr;
+    stillCount++;
+    return spr;
+  }
+
   /* Head-and-shoulders chip for rosters. */
   function drawPortrait(c, cx, cy, size, cust) {
+    var spr = stillSprite('p|' + size + '|' + JSON.stringify(cust), size, function (g, x, y) { paintPortrait(g, x, y, size, cust); });
+    c.drawImage(spr, cx - spr.lw / 2, cy - spr.lh / 2, spr.lw, spr.lh);
+  }
+  function paintPortrait(c, cx, cy, size, cust) {
     c.save();
     c.beginPath();
     c.arc(cx, cy, size / 2, 0, Math.PI * 2);
     c.closePath();
     c.clip();
-    c.fillStyle = PAL.sky;
+    var pg = c.createLinearGradient(0, cy - size / 2, 0, cy + size / 2);
+    pg.addColorStop(0, '#c4e8ff');
+    pg.addColorStop(1, '#8cc4f2');
+    c.fillStyle = pg;
     c.fillRect(cx - size, cy - size, size * 2, size * 2);
     var sc = size / 46;
     drawCharacter(c, cx, cy - size * 0.17 - CH.headY * sc, cust, 0, 1, sc, false, 0, { noShadow: true });
@@ -1571,10 +1627,18 @@
      station changes -- the head for hair and faces, the whole body for
      clothes, the feet for shoes. Used by the wardrobe grid, the booth
      displays and the puzzle card alike, so an item always looks the
-     same wherever it appears. */
+     same wherever it appears. A tile with no `opts.t` stands still and
+     comes from the sprite memo. */
   var HEAD_STATIONS = { skin: 1, hair: 1, eyes: 1, nose: 1, ears: 1, mouth: 1, hat: 1 };
   function drawLookTile(c, cx, cy, size, cust, stationId, opts) {
     opts = opts || {};
+    if (opts.t !== undefined) { paintLookTile(c, cx, cy, size, cust, stationId, opts); return; }
+    var key = 't|' + stationId + '|' + size + '|' + (opts.round ? 1 : 0) + '|' + (opts.bg === false ? 0 : 1) + '|' +
+      (opts.bgTop || '') + '|' + (opts.bgBot || '') + '|' + JSON.stringify(cust);
+    var spr = stillSprite(key, size, function (g, x, y) { paintLookTile(g, x, y, size, cust, stationId, opts); });
+    c.drawImage(spr, cx - spr.lw / 2, cy - spr.lh / 2, spr.lw, spr.lh);
+  }
+  function paintLookTile(c, cx, cy, size, cust, stationId, opts) {
     c.save();
     if (opts.round) { c.beginPath(); c.arc(cx, cy, size / 2, 0, Math.PI * 2); c.closePath(); }
     else roundRect(c, cx - size / 2, cy - size / 2, size, size, size * 0.14);

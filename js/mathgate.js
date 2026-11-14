@@ -706,12 +706,7 @@
     c.fill();
     U.panel(c, P.x, P.y, P.w, P.h, '#fff8f3');
     /* ribbon header */
-    c.fillStyle = PAL.pink;
-    E.roundRect(c, P.x + 8, P.y + 8, P.w - 16, 44, 10);
-    c.fill();
-    c.fillStyle = 'rgba(255,255,255,0.35)';
-    E.roundRect(c, P.x + 12, P.y + 11, P.w - 24, 16, 6);
-    c.fill();
+    U.ribbon(c, P.x + 8, P.y + 8, P.w - 16, 44, 10, PAL.pink);
     c.fillStyle = PAL.ink;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
@@ -749,12 +744,52 @@
     c.bezierCurveTo(-r * 1.4, -r * 0.1, -r * 0.7, -r * 1.1, 0, -r * 0.35);
     c.bezierCurveTo(r * 0.7, -r * 1.1, r * 1.4, -r * 0.1, 0, r * 0.9);
     c.closePath();
-    c.fillStyle = col;
+    var lit = col.charAt(0) === '#';
+    if (lit) {
+      /* a full heart is a little glass bead; a spent one is just its socket */
+      var hg = c.createLinearGradient(0, -r, 0, r);
+      hg.addColorStop(0, Game.entities.shade(col, 28));
+      hg.addColorStop(1, Game.entities.shade(col, -14));
+      c.fillStyle = hg;
+    } else c.fillStyle = col;
     c.fill();
-    c.strokeStyle = Game.PAL.ink;
+    c.strokeStyle = lit ? '#8a2a3a' : 'rgba(74,42,64,0.45)';
     c.lineWidth = 1.5;
+    c.lineJoin = 'round';
     c.stroke();
+    if (lit) Game.entities.fillEllipse(c, -r * 0.42, -r * 0.3, r * 0.24, r * 0.17, 'rgba(255,255,255,0.8)', false);
     c.restore();
+  }
+
+  /* the round window that shows what she is wearing */
+  function iconDisc(c, x, y, r) {
+    var E = Game.entities;
+    E.fillEllipse(c, x, y + 3, r + 1, r + 1, 'rgba(43, 21, 48, 0.16)', false);
+    E.fillEllipse(c, x, y, r, r, '#ffffff');
+  }
+
+  /* a slab that pops off the card: drop shadow, body, glossy cap */
+  function slab(c, x, y, w, h, r, fill) {
+    var E = Game.entities;
+    c.fillStyle = 'rgba(43, 21, 48, 0.2)';
+    E.roundRect(c, x - 2, y + 5, w + 4, h + 2, r + 2);
+    c.fill();
+    c.fillStyle = E.shade(fill, -34);
+    E.roundRect(c, x, y + 3.5, w, h, r);
+    c.fill();
+    var g = c.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, E.shade(fill, 30));
+    g.addColorStop(0.5, fill);
+    g.addColorStop(1, E.shade(fill, -10));
+    c.fillStyle = g;
+    E.roundRect(c, x, y, w, h, r);
+    c.fill();
+    c.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    E.roundRect(c, x + 4, y + 3, w - 8, h * 0.38, Math.max(2, r - 4));
+    c.fill();
+    c.fillStyle = fill;
+    E.roundRect(c, x, y, w, h, r);
+    E.ink(c, 2);
   }
 
   function flash(c, P, text, fill, textCol, sub) {
@@ -769,7 +804,7 @@
     c.translate(bx + bw / 2, by + bh / 2);
     c.scale(pulse, pulse);
     c.translate(-(bx + bw / 2), -(by + bh / 2));
-    E.fillRound(c, bx, by, bw, bh, 16, fill);
+    slab(c, bx, by, bw, bh, 16, fill);
     c.fillStyle = textCol;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
@@ -789,7 +824,13 @@
     var bw = c.measureText(text).width + 40;
     var bx = P.x + (P.w - bw) / 2, by = P.y + P.h - 44;
     if (gate.problem.kind === 'kanji') by = kanaMode() === 'keyboard' ? P.y + P.h - 20 : P.y + P.h - 30;
+    c.fillStyle = 'rgba(43, 21, 48, 0.2)';
+    E.roundRect(c, bx, by - 11, bw, 30, 15);
+    c.fill();
     E.fillRound(c, bx, by - 14, bw, 30, 15, fill);
+    c.fillStyle = 'rgba(255, 255, 255, 0.25)';
+    E.roundRect(c, bx + 6, by - 12, bw - 12, 11, 6);
+    c.fill();
     c.fillStyle = '#fff';
     c.textAlign = 'center';
     c.textBaseline = 'middle';
@@ -799,7 +840,7 @@
 
   function answerBox(c, r, text, caret) {
     var E = Game.entities, PAL = Game.PAL, U = Game.ui;
-    E.fillRound(c, r.x, r.y, r.w, r.h, 10, '#ffffff');
+    U.well(c, r.x, r.y, r.w, r.h, 10);
     c.fillStyle = PAL.ink;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
@@ -824,7 +865,7 @@
     /* what she picked, if any */
     if (gate.icon) {
       c.save();
-      E.fillEllipse(c, 240, 130, 42, 42, '#ffffff');
+      iconDisc(c, 240, 130, 42);
       gate.icon(c, 240, 130);
       c.restore();
     }
@@ -851,7 +892,7 @@
       gate.icon(c, 236, 104, 0.7);
     }
     /* the word, big, on a soft card */
-    E.fillRound(c, 36, 76, 236, 128, 14, '#fff');
+    U.well(c, 36, 76, 236, 128, 14);
     c.fillStyle = PAL.ink;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
@@ -913,8 +954,8 @@
     var U = Game.ui, PAL = Game.PAL, T = Game.i18n.t, E = Game.entities;
     var K = L.card;
     /* the word, big, on a soft card */
-    E.fillRound(c, K.x, K.y, K.w, K.h, 14, '#fff');
-    if (gate.icon) { E.fillEllipse(c, K.x + K.w - 2, K.y + 2, 28, 28, '#ffffff'); gate.icon(c, K.x + K.w - 2, K.y + 2, 0.66); }
+    U.well(c, K.x, K.y, K.w, K.h, 14);
+    if (gate.icon) { iconDisc(c, K.x + K.w - 2, K.y + 2, 28); gate.icon(c, K.x + K.w - 2, K.y + 2, 0.66); }
     c.fillStyle = PAL.ink;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
