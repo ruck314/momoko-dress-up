@@ -512,6 +512,14 @@
     drawLightShafts(c, camX, groundY, winShift);
     drawLights(c, camX, t, menu);
     drawBunting(c, camX, t);
+    /* aerial depth: a veil of the wall's own mid-tone over everything
+       hung on the far wall, so the bunting, fixtures and portraits sit
+       back a value step and the booths and Momoko own the contrast */
+    var hz = c.createLinearGradient(0, V.y + 16, 0, groundY - 116);
+    hz.addColorStop(0, 'rgba(176,128,172,0.16)');
+    hz.addColorStop(1, 'rgba(196,150,186,0.26)');
+    c.fillStyle = hz;
+    c.fillRect(V.x, V.y + 16, V.w, groundY - 132 - V.y);
     drawFloor(c, camX, groundY);
     drawLightPools(c, camX, groundY, t);
     drawFloorShadow(c, groundY);
@@ -860,8 +868,10 @@
     c.fillStyle = PAL.gold;
     c.beginPath(); c.arc(x, my, mr + 7, 0, Math.PI * 2); E.ink(c, 2);
     E.fillEllipse(c, x, my, mr + 2, mr + 2, '#ffffff', false);
+    /* the display sits well above the reflection band's reach; only the
+       booth she is standing at animates, the rest blit a still */
     var sample = stationSample(st);
-    E.drawLookTile(c, x, my, mr * 2, sample, st.id, { round: true, t: t });
+    if (!E.isLowDetail()) E.drawLookTile(c, x, my, mr * 2, sample, st.id, near ? { round: true, t: t } : { round: true });
     /* glass: a curved glare across the top left and a shadow in the lower rim */
     c.save();
     c.beginPath(); c.arc(x, my, mr, 0, Math.PI * 2); c.clip();
@@ -872,6 +882,37 @@
     rimS.addColorStop(0, 'rgba(74,42,64,0)'); rimS.addColorStop(1, 'rgba(74,42,64,0.22)');
     c.fillStyle = rimS; c.fillRect(x - mr, my - mr, mr * 2, mr * 2);
     c.restore();
+    /* the display sits recessed behind glass: the frame's lip shades the
+       top of the picture, a crisp curved glare rides the glass, and a
+       booth Momoko isn't standing at stays a step dimmer than hers */
+    c.save();
+    c.beginPath(); c.arc(x, my, mr, 0, Math.PI * 2); c.clip();
+    var lip = c.createLinearGradient(0, my - mr, 0, my - mr + 22);
+    lip.addColorStop(0, 'rgba(40,16,48,0.42)'); lip.addColorStop(1, 'rgba(40,16,48,0)');
+    c.fillStyle = lip; c.fillRect(x - mr, my - mr, mr * 2, 22);
+    if (!near) { c.fillStyle = 'rgba(70,36,92,0.16)'; c.fillRect(x - mr, my - mr, mr * 2, mr * 2); }
+    c.fillStyle = 'rgba(255,255,255,0.42)';
+    c.beginPath();
+    c.arc(x, my, mr - 5, Math.PI * 1.08, Math.PI * 1.42);
+    c.arc(x + 3, my + 4, mr - 7, Math.PI * 1.4, Math.PI * 1.1, true);
+    c.closePath(); c.fill();
+    E.fillEllipse(c, x + mr * 0.5, my - mr * 0.55, 2.4, 1.6, 'rgba(255,255,255,0.8)', false);
+    c.restore();
+    if (near) {
+      c.save();
+      c.globalCompositeOperation = 'lighter';
+      /* a ring only: a radial gradient pads its first stop inside the
+         inner circle, so the gradient starts at the centre and stays
+         clear until the frame */
+      var ha = 0.3 + Math.sin(t / 10) * 0.08, hr = mr + 26;
+      var halo = c.createRadialGradient(x, my, 0, x, my, hr);
+      halo.addColorStop(0, 'rgba(255,226,170,0)');
+      halo.addColorStop((mr - 1) / hr, 'rgba(255,226,170,0)');
+      halo.addColorStop(mr / hr, 'rgba(255,226,170,' + ha + ')');
+      halo.addColorStop(1, 'rgba(255,226,170,0)');
+      c.fillStyle = halo; c.fillRect(x - mr - 26, my - mr - 26, mr * 2 + 52, mr * 2 + 52);
+      c.restore();
+    }
     c.beginPath(); c.arc(x, my, mr, 0, Math.PI * 2); c.fillStyle = PAL.gold; E.ink(c, 2);
     /* gem studs round the frame */
     for (var gs = 0; gs < 8; gs++) {
@@ -1072,16 +1113,35 @@
   /* ---- The studio name over the entrance ---- */
   function drawStudioSign(c, x, groundY) {
     var label = T('studioSign');
-    E.fillRound(c, x - 110, groundY - 300, 220, 44, 12, PAL.pinkDeep);
-    E.fillRound(c, x - 104, groundY - 294, 208, 14, 6, 'rgba(255,255,255,0.3)', false);
-    c.fillStyle = PAL.cream;
+    var w = 204, h = 44, top = groundY - 302, x0 = x - w / 2;
+    /* hung from two brass chains, with its shadow on the wall */
+    c.strokeStyle = '#a8792c'; c.lineWidth = 1.6;
+    c.beginPath(); c.moveTo(x0 + 26, top - 40); c.lineTo(x0 + 34, top + 2); c.moveTo(x0 + w - 26, top - 40); c.lineTo(x0 + w - 34, top + 2); c.stroke();
+    c.save(); c.globalAlpha = 0.2; E.fillRound(c, x0 + 8, top + 9, w, h, 12, PAL.ink, false); c.restore();
+    /* gilt frame round a deep lacquer face */
+    E.fillRound(c, x0, top, w, h, 12, metal(c, x0, top, x0 + w, top + h), false);
+    c.fillStyle = PAL.gold; E.roundRect(c, x0, top, w, h, 12); E.ink(c, 2);
+    var face = c.createLinearGradient(0, top + 4, 0, top + h - 4);
+    face.addColorStop(0, '#c23c80'); face.addColorStop(0.55, '#8f2462'); face.addColorStop(1, '#6a1848');
+    E.fillRound(c, x0 + 5, top + 5, w - 10, h - 10, 8, face, false);
+    c.save(); E.roundRect(c, x0 + 5, top + 5, w - 10, h - 10, 8); c.clip();
+    c.fillStyle = 'rgba(255,255,255,0.16)'; c.fillRect(x0 + 5, top + 5, w - 10, 11);
+    c.restore();
+    /* lettering lit from within: a warm glow, then the cream face */
     c.textAlign = 'center';
     c.textBaseline = 'middle';
-    fitText(c, label, 196, 20);
-    c.fillText(label, x, groundY - 278);
+    fitText(c, label, w - 52, 19);
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    c.fillStyle = 'rgba(255,190,120,0.35)';
+    c.fillText(label, x - 1, top + h / 2 + 1);
+    c.fillText(label, x + 1, top + h / 2 - 1);
+    c.restore();
+    c.fillStyle = '#fff3dc';
+    c.fillText(label, x, top + h / 2 + 0.5);
     c.fillStyle = PAL.sun;
-    E.star(c, x - 96, groundY - 278, 7);
-    E.star(c, x + 96, groundY - 278, 7);
+    E.star(c, x0 + 15, top + h / 2, 6);
+    E.star(c, x0 + w - 15, top + h / 2, 6);
   }
 
   /* ---- The sparkly door to the runway ---- */

@@ -13,7 +13,7 @@
   var GAME_X = 0, GAME_Y = 0;
 
   /* Bump alongside CACHE_NAME in sw.js and tag the matching git release. */
-  Game.VERSION = 'v1.7.0';
+  Game.VERSION = 'v1.8.0';
 
   /* Post-processing switches, all on by default. A slow device (or a
      test) can turn any of them off without touching the scene code. */
@@ -42,7 +42,7 @@
   var player = null;
   var particles = [];
   var t = 0;
-  var PLAYER_SCALE = 1.6;
+  var PLAYER_SCALE = 1.85;
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
@@ -344,7 +344,8 @@
     if (state !== State.PAUSED) {
       if (Game.FX.bloom) drawBloom(ctx, dpr, state === State.RUNWAY ? 0.3 : 0.16);
       if (Game.FX.grade) drawGrade(ctx, state === State.RUNWAY);
-      if (Game.FX.vignette) drawVignette(ctx, state === State.PLAYING || state === State.RUNWAY ? 0.5 : 0.34);
+      if (Game.FX.vignette) drawVignette(ctx, state === State.PLAYING || state === State.RUNWAY ? 0.5 : 0.34,
+        state === State.PLAYING ? (player.x - camera.x - W / 2) * 0.55 : 0);
     }
     if (Game.gate.isOpen()) Game.gate.draw(ctx);
     if (sceneFade > 0) {
@@ -422,9 +423,11 @@
 
   /* Cinematic edge falloff over whatever was just drawn, so the eye is
      pulled to the middle of the screen. One gradient fill per frame. */
-  function drawVignette(c, strength) {
+  function drawVignette(c, strength, shiftX) {
     var V = Game.ui.VIEW;
-    var cx = V.x + V.w / 2, cy = V.y + V.h / 2;
+    /* in the studio the dark falls away from Momoko, not from the
+       middle of the screen */
+    var cx = V.x + V.w / 2 + (shiftX || 0), cy = V.y + V.h / 2;
     var r = Math.max(V.w, V.h) * 0.76;
     var g = c.createRadialGradient(cx, cy, r * 0.42, cx, cy, r);
     g.addColorStop(0, 'rgba(43, 21, 48, 0)');
@@ -480,14 +483,17 @@
 
     /* the polished floor: booths, props and Momoko mirrored under their feet */
     Game.studio.drawReflectionBand(c, S.groundY, camX, function (g) {
+      E.setLowDetail(true);
       drawWorldObjects(g, camX, target);
       E.drawCharacter(g, player.x, player.y, Game.look, player.frame, player.facing, PLAYER_SCALE, false, 0, { noShadow: true, t: t });
+      E.setLowDetail(false);
     }, 0.44);
 
     c.save();
     c.translate(-camX, 0);
-    if (camX < 500) Game.studio.drawStudioSign(c, 170, S.groundY);
+    if (camX < 500) Game.studio.drawStudioSign(c, 132, S.groundY);
     drawWorldObjects(c, camX, target);
+    drawHeroKey(c);
     player.draw(c, Game.look, PLAYER_SCALE, t);
     for (var p = 0; p < particles.length; p++) particles[p].draw(c);
     c.restore();
@@ -499,6 +505,28 @@
     }
     if (state !== State.PAUSED) Game.ui.drawHud(c);
     Game.ui.drawToast(c);
+  }
+
+  /* Momoko's key light: a warm glow on whatever stands behind her and
+     a pool of light on the floor at her feet, so the eye finds her
+     first in a busy room. Two small additive gradients. */
+  function drawHeroKey(c) {
+    var x = player.x, gy = Game.STUDIO.groundY;
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    var g = c.createRadialGradient(x, gy - 46, 6, x, gy - 46, 100);
+    g.addColorStop(0, 'rgba(255,228,190,0.13)');
+    g.addColorStop(1, 'rgba(255,228,190,0)');
+    c.fillStyle = g;
+    c.fillRect(x - 100, gy - 146, 200, 200);
+    c.translate(x, gy + 2);
+    c.scale(1, 0.2);
+    var p = c.createRadialGradient(0, 0, 4, 0, 0, 80);
+    p.addColorStop(0, 'rgba(255,236,214,0.3)');
+    p.addColorStop(1, 'rgba(255,236,214,0)');
+    c.fillStyle = p;
+    c.fillRect(-80, -80, 160, 160);
+    c.restore();
   }
 
   /* Slow glitter drifting through the studio air, deterministic so it

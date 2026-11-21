@@ -744,6 +744,9 @@
     t++;
     Game.studio.drawBackdrop(c, 0, t, TITLE_GROUND, 0, true);
     drawDusk(c, 0.6);
+    /* saved, so the bloom, grade and vignette drawn after this screen
+       cover the whole bezel instead of stopping at the game window */
+    c.save();
     clipGame(c);
 
     /* picture: Momoko in the studio doorway, looking at a dress rack */
@@ -833,6 +836,7 @@
       y += lh;
     }
     button(c, INTRO_BTN, T('continueBtn'), { fill: PAL.sun, font: 16 });
+    c.restore();
   }
 
   function handleIntroClick(mx, my) {
