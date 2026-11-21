@@ -2796,12 +2796,16 @@
      Rig: walk cycle, poses and the animator that drives them.
      Units are character units (feet at 0, ~62 tall); time in seconds.
      ================================================================== */
-  /* run: Momoko's studio trot (feet planted for a third of the cycle,
-     a flight phase between steps). cat: the runway strut, longer
-     stance, feet crossing onto the centre line, hips swinging. */
+  /* run: Momoko's studio trot (feet planted for under a third of the
+     cycle, a flight phase between steps). cat: the runway strut, longer
+     stance, feet crossing onto the centre line, hips swinging. rate caps
+     the cadence (cycles a second): at full speed the stride lengthens
+     rather than the legs blurring, and the planted foot gives up a
+     little ground. step is how long a foot takes to step home when she
+     stops or turns on the spot. */
   var GAITS = {
-    run: { A: 5.6, sigma: 0.38, lift: 4.0, bob: 0.9, arm: 0.72, elbow: 1.0, lean: 0.1, cross: 0.3, sway: 0.03, yaw: 0.72 },
-    cat: { A: 6.0, sigma: 0.6, lift: 2.2, bob: 0.5, arm: 0.46, elbow: 0.4, lean: -0.015, cross: 1.4, sway: 0.15, yaw: 0.62 },
+    run: { A: 6.8, sigma: 0.28, lift: 4.2, bob: 0.5, arm: 0.6, elbow: 0.55, lean: 0.1, cross: 0.3, sway: 0.03, yaw: 0.72, rate: 3.25, step: 0.15 },
+    cat: { A: 8.0, sigma: 0.56, lift: 2.4, bob: 0.4, arm: 0.5, elbow: 0.35, lean: -0.015, cross: 1.2, sway: 0.15, yaw: 0.62, rate: 2.4, step: 0.22 },
   };
   (function () { for (var k in GAITS) GAITS[k].cycle = 2 * GAITS[k].A / GAITS[k].sigma; })();
 
@@ -2848,14 +2852,25 @@
        that has to travel to its spot (stopping, stepping into the pose)
        is lifted over the floor rather than slid along it. */
     var tg = [], i, sd, far = 0, farD = -1, hk = clamp(hw, 0, 1);
+    /* the stride runs at full length from the first step (the planted
+       foot keeps pace with the floor); in a turn it foreshortens through
+       the front view, where forward points at the camera */
+    var ta = S.ta === undefined ? 1 : S.ta;
+    var stride = (S.stride === undefined ? w : S.stride) * ta, sw = Math.max(w, stride);
     for (i = 0; i < 2; i++) {
       sd = i === 0 ? -1 : 1;
       var u = (ph + (i ? 0.5 : 0)) % 1;
       var fc = footCycle(u, G);
-      var base = sd * hx * (1 - cross) + px * 0.4 + 0.3;
-      var ax = base + fc[0] * w, ay = -LEG.ankle - lift - fc[1] * w, ang = fc[2] * w;
+      /* square to the camera the feet stand either side of the centre,
+         so the mirror flip mid-turn lands them where they were */
+      var base = sd * hx * (1 - cross * ta) + (px * 0.4 + 0.3) * ta;
+      var ax = base + fc[0] * stride, ay = -LEG.ankle - lift - fc[1] * sw, ang = fc[2] * sw;
+      /* stopping or turning on the spot: the foot holds where it landed,
+         then steps home, lifted over the floor */
+      var st = S.steps && S.steps[i];
+      if (st && st.k < 1) { ax = base + lerp(st.x0, fc[0] * stride, smooth(st.k)); ay -= Math.sin(Math.PI * st.k) * st.h; }
       ay -= Math.max(0, -ang) * 2.0;
-      var travel = Math.abs(fc[0]) * 4 * w * (1 - w);
+      var travel = 0;
       if (hw > 0) {
         var pax = i === 0 ? px + 2.6 : px + 0.6 + hx * 0.4;
         var pay = -LEG.ankle - lift - (i === 0 ? 1.1 : 0);
@@ -2897,8 +2912,11 @@
       var shp = T(sd * ARM.shX * (1 - (sd > 0 ? 0.3 : 0.12) * yaw), ARM.shY - br * 0.25);
       /* the arm swings with the opposite leg */
       var other = footCycle((ph + (i ? 0 : 0.5)) % 1, G)[0] / G.A;
-      var a = (sd < 0 ? -0.09 - 0.06 * (1 - yaw) : 0.13 + 0.07 * (1 - yaw)) + w * G.arm * other + br * 0.015 * sd;
-      var e = 0.18 + w * G.elbow * (0.65 + 0.35 * Math.max(0, other));
+      /* the swing grows with the pace and, like the stride, points at
+         the camera through a turn */
+      var pace = (S.pace === undefined ? 1 : 0.6 + 0.4 * S.pace) * ta;
+      var a = (sd < 0 ? -0.09 - 0.06 * (1 - yaw) : 0.13 + 0.07 * (1 - yaw)) + w * G.arm * pace * other + br * 0.015 * sd;
+      var e = 0.22 + w * G.elbow * pace * (0.65 + 0.35 * Math.max(0, other));
       if (S.fidget === 'sway') a += sd * fk * 0.05;
       var pw = 0, ptx = 0, pty = 0, phx = 0, phy = 0, open = 0;
       if (i === 0 && ww > 0.001) {
@@ -2968,10 +2986,27 @@
     this.lookT = 1.5 + Math.random() * 2; this.lookTX = 0; this.lookTY = 0;
     this.idle = 0; this.fidget = null; this.fidgetK = 0; this.fidgetDur = 1; this.fidgetT = 4 + Math.random() * 3;
     this.dip = 0; this.pose = 'walk';
+    /* stride: 1 while the gait drives the feet. steps: each foot's hold
+       and step home (k 0..1, from x0, after wait, lifted by h). pace:
+       cadence as a share of the gait's cap, for the arm swing. */
+    this.stride = 0; this.pace = 0;
+    this.steps = [{ k: 1, x0: 0, wait: 0, h: 0, d: 0.15 }, { k: 1, x0: 0, wait: 0, h: 0, d: 0.15 }];
+    /* half a turn's length in seconds; the runway's pivot is slower */
+    this.turnTime = 0.1;
+    /* render interpolation: the engine draws between the last two
+       fixed ticks, so the phase and clock blend by alpha */
+    this.alpha = 1; this.p0 = 0; this.t0 = this.t;
     this.S = { look: [0, 0] };
   }
+  Animator.prototype.footX = function (i, G) {
+    var st = this.steps[i];
+    var gx = footCycle((this.phase + (i ? 0.5 : 0)) % 1, G)[0] * this.stride * smooth(Math.abs(this.turn));
+    return st.k < 1 ? lerp(st.x0, gx, smooth(st.k)) : gx;
+  };
   Animator.prototype.step = function (dt, x, moving, facing, scale, pose) {
     var G = GAITS[this.gait] || GAITS.run;
+    var i, st;
+    this.p0 = this.phase; this.t0 = this.t;
     this.t += dt;
     if (this.px === null) this.px = x;
     var dx = x - this.px;
@@ -2980,8 +3015,52 @@
     this.vel = v;
     var su = Math.abs(dx) / (scale || 1);
     if (moving && su > 0) {
-      if (this.walkW < 0.05) this.phase = G.sigma * 0.98;
-      this.phase = (this.phase + su / G.cycle) % 1;
+      if (!this.stride) {
+        /* from a stand: the near foot is planted under her and the far
+           one passing it, which is the standing pose, so the first step
+           starts without a slide. A foot still stepping home finishes
+           into the stride. */
+        for (i = 0; i < 2; i++) {
+          st = this.steps[i];
+          if (st.k < 1) { st.x0 = this.footX(i, G); st.k = 0; st.wait = 0; st.d = 0.12; }
+        }
+        this.phase = this.p0 = G.sigma / 2;
+        this.stride = 1;
+      }
+      var adv = Math.min(su / G.cycle, G.rate * dt);
+      this.pace += (adv / (G.rate * dt) - this.pace) * Math.min(1, dt * 8);
+      /* reversing at speed: until the turn swings her round she steps
+         backwards, so the planted foot still keeps to the floor */
+      var back = dx * (this.turn >= 0 ? 1 : -1) < 0;
+      this.phase = (this.phase + (back ? 1 - adv : adv)) % 1;
+    } else if (!moving && this.stride) {
+      /* stopping: both feet hold where they are; the one in the air (or
+         the trailing one) steps home first, the other follows */
+      var xs = [this.footX(0, G), this.footX(1, G)];
+      var air0 = this.phase >= G.sigma, air1 = (this.phase + 0.5) % 1 >= G.sigma;
+      var first = air0 && !air1 ? 0 : air1 && !air0 ? 1 : xs[0] < xs[1] ? 0 : 1;
+      this.stride = 0;
+      for (i = 0; i < 2; i++) {
+        st = this.steps[i];
+        st.x0 = xs[i]; st.k = Math.abs(xs[i]) < 0.4 ? 1 : 0;
+        st.wait = i === first ? 0 : G.step * 0.7; st.d = G.step;
+        st.h = clamp(Math.abs(xs[i]) * 0.3, 0.6, 2.2);
+      }
+    }
+    if (!moving) this.pace = Math.max(0, this.pace - dt * 4);
+    /* turning on the spot: two small steps round */
+    if (!moving && facing !== this.facing) {
+      for (i = 0; i < 2; i++) {
+        st = this.steps[i];
+        if (st.k < 1) continue;
+        st.x0 = 0; st.k = 0; st.wait = i * G.step * 0.6; st.d = G.step; st.h = 1.4;
+      }
+    }
+    for (i = 0; i < 2; i++) {
+      st = this.steps[i];
+      if (st.k >= 1) continue;
+      if (st.wait > 0) st.wait -= dt;
+      else st.k = Math.min(1, st.k + dt / st.d);
     }
     this.moving = moving;
     this.walkW = clamp(this.walkW + (moving ? dt / 0.1 : -dt / 0.15), 0, 1);
@@ -2989,7 +3068,7 @@
     this.facing = facing;
     if (this.turn !== facing) {
       var before = this.turn;
-      this.turn += (facing > this.turn ? 1 : -1) * dt / 0.1;
+      this.turn += (facing > this.turn ? 1 : -1) * dt / this.turnTime;
       if ((facing - this.turn) * (facing - before) <= 0) this.turn = facing;
       if (before * this.turn <= 0 && before !== 0) this.dip = 1;
     }
@@ -3042,12 +3121,15 @@
     var S = this.S;
     var f = this.turn > 0 ? 1 : this.turn < 0 ? -1 : this.facing;
     var ta = smooth(Math.abs(this.turn));
-    S.t = this.t; S.f = f; S.gait = this.gait;
+    var al = this.alpha, dp = this.phase - this.p0;
+    if (dp < -0.5) dp += 1;
+    S.t = this.t0 + (this.t - this.t0) * al; S.f = f; S.gait = this.gait;
     S.yaw = clamp(this.yaw.x, 0, 1) * ta;
-    S.phase = this.phase; S.walkW = this.walkW;
+    S.ta = ta; S.stride = this.stride; S.steps = this.steps; S.pace = this.pace;
+    S.phase = Math.abs(dp) > 0.3 ? this.phase : (this.p0 + dp * al) % 1; S.walkW = this.walkW;
     S.lean = this.lean.x * f;
     S.hairA = this.hairA.x * f; S.hairB = this.hairB.x * f; S.skirt = this.skirt.x * f;
-    S.lag = this.lag.x - gaitBob(this.gait, this.phase, this.walkW);
+    S.lag = this.lag.x - gaitBob(this.gait, S.phase, this.walkW);
     S.hipW = this.hipW.x; S.waveW = this.waveW.x;
     var bk = this.blinkK;
     S.blink = bk < 0 ? 0 : bk < 0.06 ? bk / 0.06 : bk < 0.09 ? 1 : 1 - (bk - 0.09) / 0.08;
@@ -3080,6 +3162,7 @@
     S.blink = blink ? 1 : 0;
     S.look[0] = 0; S.look[1] = 0;
     S.fidget = null; S.fidgetK = 0; S.dip = 0; S.headTilt = 0;
+    S.ta = 1; S.stride = S.walkW; S.steps = null; S.pace = 1;
     return S;
   }
 
@@ -3492,6 +3575,8 @@
     this.v = 0;
     this.pose = 'walk';
     this.scale = 1.75;
+    /* the pivot at the end of the catwalk is unhurried */
+    this.anim.turnTime = 0.24;
   }
   Model.prototype = Object.create(Walker.prototype);
   Model.prototype.constructor = Model;
@@ -3553,5 +3638,6 @@
     Player: Player,
     Model: Model,
     Animator: Animator,
+    _rig: RIG,   /* debug: the last rig drawn, for the motion probes */
   };
 })();

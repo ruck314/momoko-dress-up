@@ -115,6 +115,45 @@
     if (Game.engine && Game.engine.save) Game.engine.save();
   }
 
+  /* A friend's verdict when the show skips past her puzzle: the same
+     odds as the thought bubble, or the bubble's answer if she had one. */
+  function npcResult(m) {
+    if (m.result) return;
+    var pass = m.problem ? m.willPass : Math.random() < NPC_PASS_RATE;
+    m.result = { ok: pass, tries: pass ? 1 + Math.floor(Math.random() * 3) : MAX_TRIES };
+  }
+
+  /* Skip: straight to Momoko on her spot with her own puzzle about to
+     open, or, once she has had it, straight to the results. Friends
+     skipped past get their usual verdicts, so her place is unchanged. */
+  function skip() {
+    var me = 0, i;
+    for (i = 0; i < show.models.length; i++) if (show.models[i].isPlayer) me = i;
+    var m = show.models[me];
+    Game.audio.play('select');
+    if (m.result) {
+      for (i = 0; i < show.models.length; i++) npcResult(show.models[i]);
+      finish();
+      return;
+    }
+    for (i = 0; i < me; i++) npcResult(show.models[i]);
+    if (show.idx !== me || show.phase !== 'pose') {
+      show.idx = me;
+      m.x = m.targetX = RW().poseX;
+      m.anim.px = m.x; m.v = 0; m.facing = 1;
+      m.pose = 'pose';
+      show.phase = 'pose';
+      show.timer = 0;
+      show.gateOpened = false;
+      Game.audio.play('camera');
+    }
+    show.timer = Math.max(show.timer, 36);
+    show.excitement = Math.max(show.excitement, 0.6);
+  }
+  function canSkip() {
+    return show && show.phase !== 'ready' && show.phase !== 'results' && show.phase !== 'gate' && !Game.gate.isOpen();
+  }
+
   function react(m, ok) {
     m.result = m.result || { ok: ok, tries: ok ? 1 : MAX_TRIES };
     m.reaction = 120;
@@ -145,6 +184,8 @@
       if (flashes[i].life <= 0) flashes.splice(i, 1);
     }
 
+    if (jp.pause && canSkip()) { skip(); return null; }
+    m = current();
     switch (show.phase) {
       case 'ready':
         if (jp.action) beginShow();
@@ -154,12 +195,16 @@
           m.pose = 'pose';
           show.phase = 'pose';
           show.timer = 0;
+          /* the crowd's arms go up as she hits her mark */
+          show.excitement = Math.max(show.excitement, 0.6);
           Game.audio.play('camera');
         }
         break;
       case 'pose':
         if (show.timer % 9 === 0 && show.timer < 60) {
-          flashes.push({ x: 80 + Math.random() * 640, y: 380 + Math.random() * 70, life: 10 });
+          /* a photographer in the crowd fires */
+          var shot = Game.studio.crowdShot(t);
+          flashes.push(shot ? { x: shot[0], y: shot[1], life: 10 } : { x: 80 + Math.random() * 640, y: 380 + Math.random() * 70, life: 10 });
           if (show.timer % 18 === 0) Game.audio.play('camera');
         }
         if (show.timer === 60) {
@@ -194,8 +239,17 @@
       case 'react':
         if (m.reaction > 0) m.reaction--;
         if (show.timer >= 120) {
+          /* the end of the catwalk: she pivots on the spot and struts
+             back the way she came */
           m.pose = 'walk';
-          m.targetX = RW().exitX;
+          m.facing = -1;
+          show.phase = 'turn';
+          show.timer = 0;
+        }
+        break;
+      case 'turn':
+        if (show.timer >= 34) {
+          m.targetX = RW().enterX;
           show.phase = 'exit';
           show.timer = 0;
         }
@@ -214,6 +268,9 @@
 
   /* ---- Drawing ---- */
   var READY_BTN = { x: 300, y: 372, w: 200, h: 48 };
+  /* top right of the playfield, clear of the announcer and of the
+     tablet's side strips; big enough for a small finger */
+  var SKIP_BTN = { x: 652, y: 12, w: 136, h: 52 };
   var AGAIN_BTN = { x: 420, y: 396, w: 170, h: 44 };
   var BACK_BTN = { x: 210, y: 396, w: 190, h: 44 };
 
@@ -482,12 +539,14 @@
     if (show.phase === 'ready') { drawReady(c); return; }
     if (show.phase === 'results') { drawResults(c); return; }
     drawAnnouncer(c);
+    if (canSkip()) Game.ui.button(c, SKIP_BTN, T('runwaySkip') + ' \u00bb', { font: 17, fill: 'rgba(255,248,243,0.94)' });
   }
 
   /* returns 'exit' when she heads back to the studio */
   function click(mx, my) {
     if (!show) return null;
     if (show.phase === 'ready' && Game.ui.hit(READY_BTN, mx, my)) { Game.audio.play('select'); beginShow(); return null; }
+    if (canSkip() && Game.ui.hit(SKIP_BTN, mx, my)) { skip(); return null; }
     if (show.phase === 'results') {
       if (Game.ui.hit(AGAIN_BTN, mx, my)) { Game.audio.play('select'); start(); beginShow(); return null; }
       if (Game.ui.hit(BACK_BTN, mx, my)) { Game.audio.play('select'); show = null; return 'exit'; }
@@ -502,6 +561,8 @@
     click: click,
     isActive: function () { return !!show; },
     phase: function () { return show ? show.phase : null; },
+    current: current,
+    skip: function () { if (canSkip()) skip(); },
     _show: function () { return show; },
     _skipToResults: function () { if (!show) return; for (var i = 0; i < show.models.length; i++) { if (!show.models[i].result) show.models[i].result = { ok: i % 2 === 0, tries: 1 + (i % 3) }; } show.idx = show.models.length; finish(); },
   };

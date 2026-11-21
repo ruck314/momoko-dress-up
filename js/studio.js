@@ -1242,31 +1242,6 @@
     audienceY: 392,
   };
 
-  var AUDIENCE = (function () {
-    var rnd = E.seeded(99);
-    var rows = [];
-    var cols = [PAL.pink, PAL.lavender, PAL.mint, PAL.sky, PAL.sun, PAL.coral, '#ffffff', '#ffd9a8'];
-    var poses = ['none', 'arms', 'phone', 'stick', 'none', 'wave', 'stick', 'none'];
-    for (var r = 0; r < 3; r++) {
-      for (var i = 0; i < 16; i++) {
-        rows.push({
-          x: -20 + i * 54 + (r % 2) * 27 + rnd() * 10,
-          y: RUNWAY.audienceY + r * 30 + rnd() * 6,
-          r: 13 + r * 2 + rnd() * 3,
-          col: cols[Math.floor(rnd() * cols.length)],
-          pose: poses[Math.floor(rnd() * poses.length)],
-          hairStyle: ['short', 'bun', 'pony', 'long'][Math.floor(rnd() * 4)],
-          ph: rnd() * 6.28,
-          skin: Game.SKIN_COLORS[Math.floor(rnd() * Game.SKIN_COLORS.length)],
-          hair: Game.HAIR_COLORS[Math.floor(rnd() * Game.HAIR_COLORS.length)],
-          row: r,
-          flashAt: Math.floor(rnd() * 200),
-        });
-      }
-    }
-    return rows;
-  })();
-
   var BALLOONS = (function () {
     var out = [], rnd = E.seeded(5);
     var cols = [PAL.pink, PAL.sun, PAL.mint, PAL.lavender, PAL.sky, PAL.coral];
@@ -1279,58 +1254,378 @@
     return out;
   })();
 
+  /* The audience: three rows of chibi fans, seeded once. Row 0 sits at
+     the catwalk's foot (smaller, hazed, rimmed by the stage spill), row 1
+     is the lit middle, row 2 the out-of-focus foreground. Each fan is
+     painted into two bitmaps on first sight -- the body (with any long
+     hair behind it) and the head (hair, ears, blush) -- and only the
+     moving parts are drawn live: arms, eyes, mouth and whatever they
+     hold. kind: clap, cheer (arms up at the big moments), wave, a glow
+     stick, a camera or a phone. Every fan keeps their own tempo, phase
+     and reaction time, so the crowd never moves as one. */
+  var CROWD_KINDS = ['clap', 'camera', 'wave', 'stick', 'clap', 'phone', 'cheer', 'clap', 'camera', 'cheer'];
+  var CROWD_HAIR = ['short', 'bob', 'bun', 'pony', 'pigtails', 'long', 'curly', 'cap'];
+  var CROWD_TOPS = ['tee', 'stripe', 'hoodie', 'collar'];
+  var CROWD_ACC = ['none', 'bow', 'none', 'band', 'clip', 'none'];
+  var AUDIENCE = (function () {
+    var rnd = E.seeded(99);
+    var rows = [];
+    var cols = Game.CLOTH_COLORS.slice(0, 9).concat([PAL.mint, PAL.sky, PAL.sun, PAL.coral, PAL.teal]);
+    function pick(a) { return a[Math.floor(rnd() * a.length)]; }
+    for (var r = 0; r < 3; r++) {
+      for (var i = 0; i < 16; i++) {
+        var x = -20 + i * 54 + (r % 2) * 27 + rnd() * 10;
+        rows.push({
+          id: rows.length, row: r, x: x,
+          y: RUNWAY.audienceY + r * 30 + rnd() * 6,
+          r: [12, 15.5, 19][r] + rnd() * 2.5,
+          col: pick(cols), col2: pick(Game.ACC_COLORS), top: pick(CROWD_TOPS),
+          skin: pick(Game.SKIN_COLORS), hair: pick(Game.HAIR_COLORS),
+          hairStyle: pick(CROWD_HAIR), acc: pick(CROWD_ACC), kind: pick(CROWD_KINDS),
+          /* most turn toward the pose spot; a few watch the walk in */
+          face: (x < RUNWAY.poseX ? 1 : -1) * (rnd() < 0.18 ? -1 : 1),
+          ph: rnd() * 6.28, tempo: 0.8 + rnd() * 0.45, resp: 0.03 + rnd() * 0.1,
+          blinkOff: Math.floor(rnd() * 300), blinkPer: 170 + Math.floor(rnd() * 160),
+          shotOff: Math.floor(rnd() * 400), shotPer: 150 + Math.floor(rnd() * 160),
+          exS: 0, upW: 0, clapW: 0, camW: 0, lastT: -1, shotT: -999,
+          body: null, head: null, dpr: 0,
+        });
+      }
+    }
+    return rows;
+  })();
+
+  /* ---- a fan's bitmaps ---- */
+  function fanCol(p, col) { return p.row === 0 ? E.mix(col, '#6a3a8a', 0.16) : col; }
+  function fanSprite(w, h, ox, oy, dpr, paint) {
+    var cv = document.createElement('canvas');
+    cv.lw = Math.ceil(w); cv.lh = Math.ceil(h); cv.ox = ox; cv.oy = oy;
+    cv.width = Math.ceil(cv.lw * dpr); cv.height = Math.ceil(cv.lh * dpr);
+    var g = cv.getContext('2d');
+    g.scale(dpr, dpr);
+    g.translate(ox, oy);
+    paint(g);
+    return cv;
+  }
+  function fanInk(g, col, w) {
+    g.strokeStyle = E.inkColor(col); g.lineWidth = w; g.lineJoin = 'round'; g.lineCap = 'round'; g.stroke();
+  }
+  /* fill, cel bands toward the stage light above, then a hue-tinted ink */
+  function fanPart(g, path, col, r, warm, lw) {
+    path(); g.fillStyle = col; g.fill();
+    E.celBands(g, path, col, r * 0.08, -r * 0.13, warm, 0.9);
+    path(); fanInk(g, col, lw);
+  }
+  /* the stage's spill on the upper edge of a shape */
+  function fanRim(g, path, top, bot, a) {
+    g.save(); path(); g.clip();
+    var rg = g.createLinearGradient(0, top, 0, bot);
+    rg.addColorStop(0, 'rgba(255, 176, 228, ' + a + ')');
+    rg.addColorStop(1, 'rgba(255, 176, 228, 0)');
+    g.fillStyle = rg; g.fillRect(-80, top, 160, bot - top);
+    g.restore();
+  }
+  function paintFanBody(g, p) {
+    var r = p.r, col = fanCol(p, p.col), hair = fanCol(p, p.hair), skin = fanCol(p, p.skin);
+    var lw = 0.9 + r * 0.035, rim = p.row === 0 ? 0.55 : p.row === 1 ? 0.38 : 0.2;
+    if (p.hairStyle === 'long') {
+      fanPart(g, function () { E.roundRect(g, -1.1 * r, -0.7 * r, 2.2 * r, 2.15 * r, 0.75 * r); }, hair, r, false, lw);
+    }
+    if (p.top === 'hoodie') {
+      fanPart(g, function () { g.beginPath(); g.ellipse(0, 0.66 * r, 0.82 * r, 0.3 * r, 0, 0, Math.PI * 2); }, E.shade(col, -12), r, false, lw);
+    }
+    g.fillStyle = E.shade(skin, -16);
+    E.roundRect(g, -0.25 * r, 0.42 * r, 0.5 * r, 0.5 * r, 0.2 * r); g.fill();
+    var torso = function () {
+      g.beginPath();
+      g.moveTo(-1.02 * r, 3.6 * r);
+      g.lineTo(-1.1 * r, 1.15 * r);
+      g.quadraticCurveTo(-1.06 * r, 0.62 * r, -0.48 * r, 0.6 * r);
+      g.quadraticCurveTo(0, 0.78 * r, 0.48 * r, 0.6 * r);
+      g.quadraticCurveTo(1.06 * r, 0.62 * r, 1.1 * r, 1.15 * r);
+      g.lineTo(1.02 * r, 3.6 * r);
+      g.closePath();
+    };
+    torso(); g.fillStyle = col; g.fill();
+    E.celBands(g, torso, col, r * 0.1, -r * 0.14, false, 0.9);
+    var c2 = fanCol(p, p.col2);
+    g.save(); torso(); g.clip();
+    if (p.top === 'stripe') {
+      g.fillStyle = c2;
+      g.fillRect(-1.2 * r, 1.3 * r, 2.4 * r, 0.24 * r);
+      g.fillRect(-1.2 * r, 1.9 * r, 2.4 * r, 0.24 * r);
+    } else if (p.top === 'collar') {
+      g.fillStyle = '#fff6ec';
+      g.beginPath(); g.moveTo(-0.46 * r, 0.62 * r); g.lineTo(0, 0.8 * r); g.lineTo(-0.12 * r, 1.08 * r); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(0.46 * r, 0.62 * r); g.lineTo(0, 0.8 * r); g.lineTo(0.12 * r, 1.08 * r); g.closePath(); g.fill();
+    } else if (p.top === 'hoodie') {
+      g.strokeStyle = '#fff6ec'; g.lineWidth = 0.07 * r; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(-0.2 * r, 0.82 * r); g.lineTo(-0.24 * r, 1.4 * r); g.moveTo(0.2 * r, 0.82 * r); g.lineTo(0.24 * r, 1.4 * r); g.stroke();
+    } else {
+      E.heart(g, 0.18 * r, 1.6 * r, 0.24 * r, c2, false);
+    }
+    g.restore();
+    fanRim(g, torso, 0.55 * r, 1.25 * r, rim);
+    torso(); fanInk(g, col, lw);
+  }
+  function paintFanHead(g, p) {
+    var r = p.r, hair = fanCol(p, p.hair), skin = fanCol(p, p.skin), c2 = fanCol(p, p.col2);
+    var hs = p.hairStyle, lw = 0.9 + r * 0.035, rim = p.row === 0 ? 0.6 : p.row === 1 ? 0.42 : 0.22;
+    /* behind the head */
+    if (hs === 'pony') {
+      fanPart(g, function () {
+        g.beginPath(); g.moveTo(-0.6 * r, -0.75 * r);
+        g.quadraticCurveTo(-1.55 * r, -0.6 * r, -1.35 * r, 0.75 * r);
+        g.quadraticCurveTo(-1.0 * r, 0.1 * r, -0.75 * r, -0.2 * r); g.closePath();
+      }, hair, r, false, lw);
+    } else if (hs === 'pigtails') {
+      fanPart(g, function () { g.beginPath(); g.ellipse(-1.08 * r, 0.15 * r, 0.3 * r, 0.52 * r, 0.35, 0, Math.PI * 2); }, hair, r, false, lw);
+      fanPart(g, function () { g.beginPath(); g.ellipse(1.0 * r, 0.2 * r, 0.26 * r, 0.46 * r, -0.35, 0, Math.PI * 2); }, hair, r, false, lw);
+    } else if (hs === 'bun') {
+      fanPart(g, function () { g.beginPath(); g.ellipse(-0.2 * r, -1.02 * r, 0.42 * r, 0.38 * r, 0, 0, Math.PI * 2); }, hair, r, false, lw);
+    } else if (hs === 'bob' || hs === 'long') {
+      fanPart(g, function () { E.roundRect(g, -1.12 * r, -0.55 * r, 2.2 * r, 1.25 * r, 0.5 * r); }, hair, r, false, lw);
+    } else if (hs === 'curly') {
+      for (var k = 0; k < 7; k++) {
+        var a = Math.PI * (0.92 + k * 0.19);
+        fanPart(g, (function (ax, ay) { return function () { g.beginPath(); g.arc(ax, ay, 0.36 * r, 0, Math.PI * 2); }; })(Math.cos(a) * 0.98 * r, -0.12 * r + Math.sin(a) * 0.98 * r), hair, r, false, lw);
+      }
+    }
+    /* ear on the far side of a three-quarter view, then the head */
+    fanPart(g, function () { g.beginPath(); g.ellipse(-0.9 * r, 0.12 * r, 0.2 * r, 0.27 * r, 0, 0, Math.PI * 2); }, skin, r, true, lw);
+    fanPart(g, function () { g.beginPath(); g.ellipse(0, 0, r, 0.95 * r, 0, 0, Math.PI * 2); }, skin, r, true, lw);
+    g.save();
+    g.globalAlpha = 0.45; g.fillStyle = '#ff8fb0';
+    g.beginPath(); g.ellipse(0.66 * r, 0.38 * r, 0.17 * r, 0.1 * r, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(-0.14 * r, 0.4 * r, 0.12 * r, 0.09 * r, 0, 0, Math.PI * 2); g.fill();
+    g.restore();
+    /* the hair cap with a fringe of scallops over the brow */
+    var cap = function () {
+      g.beginPath();
+      g.moveTo(-1.02 * r, 0.28 * r);
+      g.quadraticCurveTo(-1.14 * r, -0.95 * r, -0.08 * r, -1.08 * r);
+      g.quadraticCurveTo(0.98 * r, -1.06 * r, 1.06 * r, -0.12 * r);
+      g.quadraticCurveTo(0.88 * r, -0.04 * r, 0.74 * r, -0.2 * r);
+      g.quadraticCurveTo(0.56 * r, -0.44 * r, 0.38 * r, -0.14 * r);
+      g.quadraticCurveTo(0.18 * r, -0.4 * r, -0.03 * r, -0.12 * r);
+      g.quadraticCurveTo(-0.24 * r, -0.42 * r, -0.46 * r, -0.2 * r);
+      g.quadraticCurveTo(-0.64 * r, -0.08 * r, -0.7 * r, 0.28 * r);
+      g.closePath();
+    };
+    fanPart(g, cap, hair, r, false, lw);
+    fanRim(g, cap, -1.1 * r, -0.55 * r, rim);
+    g.strokeStyle = 'rgba(255, 255, 255, 0.42)'; g.lineWidth = 0.11 * r; g.lineCap = 'round';
+    g.beginPath(); g.arc(0.05 * r, -0.3 * r, 0.62 * r, Math.PI * 1.22, Math.PI * 1.52); g.stroke();
+    if (hs === 'cap') {
+      fanPart(g, function () { g.beginPath(); g.ellipse(0, -0.42 * r, 1.04 * r, 0.72 * r, 0, Math.PI, Math.PI * 2); g.closePath(); }, c2, r, false, lw);
+      fanPart(g, function () { g.beginPath(); g.ellipse(0.98 * r, -0.44 * r, 0.56 * r, 0.14 * r, 0.08, 0, Math.PI * 2); }, E.shade(c2, -10), r, false, lw);
+    }
+    if (p.acc === 'bow' && hs !== 'cap') {
+      fanPart(g, function () {
+        g.beginPath(); g.moveTo(0.5 * r, -0.92 * r);
+        g.lineTo(0.18 * r, -1.2 * r); g.lineTo(0.16 * r, -0.72 * r); g.closePath();
+        g.moveTo(0.5 * r, -0.92 * r); g.lineTo(0.84 * r, -1.16 * r); g.lineTo(0.82 * r, -0.66 * r); g.closePath();
+      }, c2, r, false, lw);
+      fanPart(g, function () { g.beginPath(); g.arc(0.5 * r, -0.92 * r, 0.11 * r, 0, Math.PI * 2); }, E.shade(c2, -14), r, false, lw * 0.8);
+    } else if (p.acc === 'band' && hs !== 'cap') {
+      g.strokeStyle = c2; g.lineWidth = 0.16 * r;
+      g.beginPath(); g.arc(0, -0.1 * r, 0.98 * r, Math.PI * 1.12, Math.PI * 1.9); g.stroke();
+    } else if (p.acc === 'clip') {
+      g.fillStyle = c2; E.star(g, 0.72 * r, -0.5 * r, 0.2 * r);
+    }
+  }
+  function fanSprites(p) {
+    var dpr = Math.min(3, window.devicePixelRatio || 1);
+    if (p.body && p.dpr === dpr) return;
+    var r = p.r;
+    p.body = fanSprite(3.4 * r, 4.8 * r, 1.7 * r, 1.15 * r, dpr, function (g) { paintFanBody(g, p); });
+    p.head = fanSprite(3.4 * r, 3.0 * r, 1.7 * r, 1.65 * r, dpr, function (g) { paintFanHead(g, p); });
+    p.dpr = dpr;
+    p.cSkin = fanCol(p, p.skin); p.cCol = fanCol(p, p.col); p.cCol2 = fanCol(p, p.col2); p.cInk = fanCol(p, PAL.ink);
+  }
+
+  /* ---- a fan's mood, stepped once per runway tick ---- */
+  function fanTick(p, t, ex, onStage) {
+    if (p.lastT === t) return;
+    /* a new show restarts the runway's clock */
+    if (t < p.lastT) { p.lastT = -1; p.shotT = -999; }
+    var n = p.lastT < 0 ? 1 : Math.min(30, Math.max(1, t - p.lastT));
+    p.exS += (ex - p.exS) * (1 - Math.pow(1 - p.resp, n));
+    var joins = p.kind === 'clap' || p.kind === 'cheer' || p.kind === 'wave';
+    var up = joins && p.exS > (p.kind === 'cheer' ? 0.25 : 0.45) ? 1 : 0;
+    var clap = joins && (p.exS > 0.1 || Math.sin(t * 0.011 * p.tempo + p.ph) > 0.35) ? 1 : 0;
+    var e = 1 - Math.pow(0.88, n);
+    p.upW += (up - p.upW) * e;
+    p.clapW += (clap - p.clapW) * e;
+    p.camW += ((onStage ? 1 : 0) - p.camW) * e;
+    if ((p.kind === 'camera' || p.kind === 'phone') && onStage && p.lastT >= 0 && t > p.lastT &&
+        Math.floor((t + p.shotOff) / p.shotPer) !== Math.floor((p.lastT + p.shotOff) / p.shotPer)) p.shotT = t;
+    p.lastT = t;
+  }
+
+  /* an arm: a soft-elbowed curve from the shoulder, a sleeve cap, a hand */
+  function fanBlob(c, x, y, rx, col, lw) {
+    c.beginPath(); c.ellipse(x, y, rx, rx, 0, 0, Math.PI * 2);
+    c.fillStyle = col; c.fill(); fanInk(c, col, lw);
+  }
+  function fanArm(c, r, sx, sy, hx, hy, bend, skin, sleeve, lw) {
+    var dx = hx - sx, dy = hy - sy, L = Math.sqrt(dx * dx + dy * dy) || 1;
+    var cx = (sx + hx) / 2 + dy / L * bend * r, cy = (sy + hy) / 2 - dx / L * bend * r;
+    c.beginPath(); c.moveTo(sx, sy); c.quadraticCurveTo(cx, cy, hx, hy);
+    c.lineCap = 'round';
+    c.strokeStyle = E.inkColor(skin); c.lineWidth = 0.34 * r + lw * 2; c.stroke();
+    c.strokeStyle = skin; c.lineWidth = 0.34 * r; c.stroke();
+    fanBlob(c, sx + (cx - sx) * 0.3, sy + (cy - sy) * 0.3, 0.26 * r, sleeve, lw);
+    fanBlob(c, hx, hy, 0.19 * r, skin, lw);
+  }
+
+  var crowdSpot = null;
   function drawSpectator(c, p, t, ex) {
-    var bob = Math.max(0, Math.sin(t / (9 - p.row) + p.ph)) * (3 + ex * 7);
-    var px = p.x, py = p.y - bob;
-    var dim = p.row === 0 ? 0 : p.row === 1 ? -18 : -34;
-    var skin = E.shade(p.skin, dim), hair = E.shade(p.hair, dim), shirt = E.shade(p.col, dim);
-    /* arms up / waving behind the body */
-    if (p.pose === 'arms' || p.pose === 'wave') {
-      var sway = Math.sin(t / 8 + p.ph) * 0.25;
-      for (var sd = -1; sd <= 1; sd += 2) {
-        if (p.pose === 'wave' && sd < 0) continue;
-        c.save();
-        c.translate(px + sd * p.r * 1.1, py + p.r * 0.9);
-        c.rotate(sd * (0.5 + sway));
-        E.fillRound(c, -3.5, -p.r * 2.2, 7, p.r * 2.2, 3.5, skin, false);
-        E.fillEllipse(c, 0, -p.r * 2.2, 5, 5, skin, false);
-        c.restore();
-      }
-    }
-    /* shoulders */
-    E.fillRound(c, px - p.r * 1.3, py + p.r * 0.5, p.r * 2.6, p.r * 2.2, p.r, shirt, false);
-    /* long hair behind the head */
-    if (p.hairStyle === 'long') E.fillRound(c, px - p.r - 2, py - p.r * 0.6, p.r * 2 + 4, p.r * 1.9, p.r * 0.6, hair, false);
-    /* head */
-    E.fillEllipse(c, px, py - p.r * 0.2, p.r, p.r, skin, false);
-    c.beginPath(); c.arc(px, py - p.r * 0.4, p.r + 1, Math.PI, Math.PI * 2); c.closePath();
-    c.fillStyle = hair; c.fill();
-    /* stage light catching the top of the head and shoulders */
+    fanTick(p, t, ex, crowdSpot !== null && crowdSpot !== undefined);
+    fanSprites(p);
+    var r = p.r, k = p.tempo, ph = p.ph, exS = p.exS;
+    var skin = p.cSkin, sleeve = p.cCol, lw = 0.9 + r * 0.035;
+    var bob = (0.5 + exS * 5 + p.upW * 2) * Math.max(0, Math.sin(t * 0.11 * k * (1 + exS * 0.4) + ph));
+    var sway = Math.sin(t * 0.03 * k + ph) * 0.5;
     c.save();
-    c.globalAlpha = p.row === 0 ? 0.3 : 0.18;
-    c.strokeStyle = '#ffd6ee'; c.lineWidth = 2.2; c.lineCap = 'round';
-    c.beginPath(); c.arc(px, py - p.r * 0.4, p.r + 0.5, Math.PI * 1.15, Math.PI * 1.85); c.stroke();
-    c.beginPath(); c.arc(px, py + p.r * 0.5 + p.r, p.r * 1.25, Math.PI * 1.12, Math.PI * 1.3); c.stroke();
-    c.restore();
-    if (p.hairStyle === 'bun') E.fillEllipse(c, px, py - p.r * 1.45, p.r * 0.45, p.r * 0.45, hair, false);
-    if (p.hairStyle === 'pony') E.fillEllipse(c, px + p.r * 0.9, py - p.r * 0.6, p.r * 0.35, p.r * 0.8, hair, false);
-    /* glow stick or phone held up */
-    if (p.pose === 'stick' && p.row < 2) {
-      var sa = Math.sin(t / 10 + p.ph) * 0.5;
+    c.translate(p.x + sway, p.y - bob);
+    if (p.face < 0) c.scale(-1, 1);
+    c.drawImage(p.body, -p.body.ox, -p.body.oy, p.body.lw, p.body.lh);
+
+    /* hands: at rest by the waist, clapping at the chest, up over the
+       head, or busy with a stick, a phone or a camera */
+    var fx = 0.24 * r, hy0 = -0.2 * r;
+    var shot = Math.max(0, Math.min(1, 1 - (t - p.shotT) / 10));
+    var ck = t * (0.16 + 0.08 * exS) * k + ph;
+    var gap = 0.1 * r + 0.34 * r * (0.5 + 0.5 * Math.cos(ck));
+    var chY = (1.3 - 0.3 * exS) * r + Math.sin(ck) * 0.05 * r;
+    var cw = p.clapW, uw = p.upW;
+    var nx = lerpN(0.78 * r, fx + gap * 0.5, cw), ny = lerpN(2.3 * r, chY, cw);
+    var fxh = lerpN(-0.78 * r, fx - gap * 0.5, cw), fyh = ny;
+    var wv = Math.sin(t * 0.22 * k + ph) * 0.18 * r;
+    nx = lerpN(nx, 0.95 * r + wv, uw); ny = lerpN(ny, -1.55 * r, uw);
+    fxh = lerpN(fxh, -0.95 * r + wv, uw); fyh = lerpN(fyh, -1.5 * r, uw);
+    var camX = fx + 0.3 * r, camY = 0.14 * r - shot * 0.16 * r, cam = p.camW;
+    if (p.kind === 'wave') {
+      var wx = Math.sin(t * 0.24 * k + ph) * 0.28 * r;
+      nx = lerpN(nx, 1.15 * r + wx, 1 - uw); ny = lerpN(ny, -1.15 * r, 1 - uw);
+    } else if (p.kind === 'stick') {
+      nx = 1.05 * r; ny = -0.45 * r - Math.max(0, Math.sin(t * 0.13 * k + ph)) * (0.15 + exS * 0.3) * r;
+    } else if (p.kind === 'phone') {
+      nx = lerpN(0.78 * r, 0.95 * r, cam); ny = lerpN(2.3 * r, -0.85 * r - shot * 0.08 * r, cam);
+    } else if (p.kind === 'camera') {
+      nx = lerpN(0.78 * r, camX + 0.4 * r, cam); ny = lerpN(2.3 * r, camY + hy0 + 0.14 * r, cam);
+      fxh = lerpN(-0.78 * r, camX - 0.4 * r, cam); fyh = ny;
+    }
+    var behind = p.kind !== 'camera' || cam < 0.5;
+    /* elbows bend out and down whichever way the hand has gone */
+    var shY = 0.95 * r;
+    if (behind) {
+      fanArm(c, r, -0.9 * r, shY, fxh, fyh, fyh < shY ? 0.25 : -0.25, skin, sleeve, lw);
+      fanArm(c, r, 0.9 * r, shY, nx, ny, ny < shY ? -0.25 : 0.25, skin, sleeve, lw);
+    }
+    if (p.kind === 'stick') {
+      var sa = Math.sin(t * 0.1 * k + ph) * 0.45;
       c.save();
-      c.translate(px + p.r * 1.3, py + p.r * 0.6);
-      c.rotate(sa);
-      E.fillRound(c, -2.5, -34, 5, 36, 2.5, p.col, false);
-      c.save(); c.globalAlpha = 0.35; E.fillRound(c, -5, -36, 10, 40, 5, p.col, false); c.restore();
+      c.translate(nx, ny); c.rotate(sa);
+      c.globalCompositeOperation = 'lighter';
+      c.globalAlpha = 0.35;
+      E.fillRound(c, -0.26 * r, -2.1 * r, 0.52 * r, 2.1 * r, 0.26 * r, p.cCol2, false);
+      c.globalAlpha = 1;
+      c.globalCompositeOperation = 'source-over';
+      E.fillRound(c, -0.1 * r, -1.9 * r, 0.2 * r, 1.9 * r, 0.1 * r, '#fff6ec', false);
       c.restore();
-    } else if (p.pose === 'phone' && p.row < 2) {
-      var phx = px + p.r * 1.2, phy = py - p.r * 0.9;
-      E.fillRound(c, phx - 4, phy - 7, 8, 14, 2, '#3a2a40', false);
-      E.fillRound(c, phx - 3, phy - 6, 6, 11, 1, '#9fd9ff', false);
-      if (((t + p.flashAt) % 160) < 4) {
-        c.save(); c.globalAlpha = 0.9; c.fillStyle = '#ffffff'; E.star(c, phx, phy - 9, 9); c.restore();
+      fanBlob(c, nx, ny, 0.19 * r, skin, lw);
+    }
+
+    /* the head: steadier than the body, glancing after the model */
+    c.save();
+    c.translate(0, hy0 + bob * 0.15);
+    c.rotate(Math.sin(t * 0.05 * k + ph) * 0.05 - uw * 0.06);
+    c.drawImage(p.head, -p.head.ox, -p.head.oy, p.head.lw, p.head.lh);
+    var look = crowdSpot === null || crowdSpot === undefined ? 0 : Math.max(-1, Math.min(1, (crowdSpot - p.x) * p.face / 260));
+    var ink = p.cInk, ey = 0.08 * r, lx = look * 0.04 * r;
+    var blink = ((t + p.blinkOff) % p.blinkPer) < 6;
+    var happy = uw > 0.6 && p.id % 2 === 0;
+    c.strokeStyle = ink; c.lineWidth = 0.08 * r; c.lineCap = 'round';
+    for (var e = 0; e < 2; e++) {
+      var ex2 = e ? fx - 0.3 * r : fx + 0.32 * r, ew = e ? 0.8 : 1;
+      if (p.kind === 'camera' && cam > 0.5 && !e) continue;
+      if (blink || happy) {
+        c.beginPath();
+        if (happy) c.arc(ex2, ey + 0.06 * r, 0.11 * r * ew, Math.PI * 1.15, Math.PI * 1.85);
+        else c.arc(ex2, ey - 0.02 * r, 0.11 * r * ew, Math.PI * 0.15, Math.PI * 0.85);
+        c.stroke();
+      } else {
+        c.fillStyle = ink;
+        c.beginPath(); c.ellipse(ex2 + lx, ey, 0.12 * r * ew, 0.17 * r, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#ffffff';
+        c.beginPath(); c.arc(ex2 + lx - 0.03 * r, ey - 0.07 * r, 0.05 * r, 0, Math.PI * 2); c.fill();
       }
     }
+    var mx = fx + 0.04 * r, my = 0.46 * r, open = Math.max(0, Math.min(1, (exS - 0.25) * 2.5));
+    if (p.kind === 'camera') open *= 1 - cam;
+    if (open > 0.15) {
+      c.beginPath(); c.moveTo(mx - 0.15 * r, my - 0.02 * r);
+      c.quadraticCurveTo(mx, my + 0.34 * r * open, mx + 0.15 * r, my - 0.02 * r); c.closePath();
+      c.fillStyle = '#8a2a4a'; c.fill();
+      c.lineWidth = 0.06 * r; c.stroke();
+      c.fillStyle = '#ff8fa8';
+      c.beginPath(); c.ellipse(mx, my + 0.12 * r * open, 0.07 * r, 0.04 * r, 0, 0, Math.PI * 2); c.fill();
+    } else {
+      c.beginPath(); c.moveTo(mx - 0.12 * r, my); c.quadraticCurveTo(mx, my + 0.13 * r, mx + 0.12 * r, my); c.stroke();
+    }
+    c.restore();
+
+    /* a camera at the eye (its back to us, screen lit), kicking up a
+       little as it fires; a phone held high, filming */
+    if (p.kind === 'camera' && cam > 0.02) {
+      c.save();
+      c.translate(lerpN(0.9 * r, camX, cam), lerpN(2.3 * r, camY + hy0, cam));
+      c.rotate(-shot * 0.18);
+      E.fillRound(c, -0.5 * r, -0.32 * r, 1.0 * r, 0.64 * r, 0.14 * r, '#3a2a48', false);
+      E.roundRect(c, -0.5 * r, -0.32 * r, 1.0 * r, 0.64 * r, 0.14 * r); fanInk(c, '#3a2a48', lw);
+      E.fillRound(c, -0.18 * r, -0.46 * r, 0.42 * r, 0.18 * r, 0.06 * r, '#4c3a5c', false);
+      E.fillRound(c, -0.34 * r, -0.2 * r, 0.56 * r, 0.4 * r, 0.06 * r, shot > 0.3 ? '#ffffff' : '#9fd9ff', false);
+      if (shot > 0.4) {
+        c.globalAlpha = shot;
+        c.fillStyle = '#ffffff';
+        E.star(c, 0.03 * r, -0.5 * r, 0.5 * r * shot + 0.2 * r);
+        c.globalAlpha = 1;
+      }
+      c.restore();
+      if (!behind) {
+        fanArm(c, r, -0.9 * r, shY, fxh, fyh, 0.3, skin, sleeve, lw);
+        fanArm(c, r, 0.9 * r, shY, nx, ny, -0.3, skin, sleeve, lw);
+      }
+    } else if (p.kind === 'phone' && cam > 0.02) {
+      c.save();
+      c.translate(nx, ny - 0.3 * r);
+      c.rotate(0.12 - shot * 0.12);
+      E.fillRound(c, -0.24 * r, -0.4 * r, 0.48 * r, 0.8 * r, 0.08 * r, '#3a2a48', false);
+      E.roundRect(c, -0.24 * r, -0.4 * r, 0.48 * r, 0.8 * r, 0.08 * r); fanInk(c, '#3a2a48', lw * 0.8);
+      E.fillRound(c, -0.18 * r, -0.33 * r, 0.36 * r, 0.62 * r, 0.05 * r, shot > 0.3 ? '#ffffff' : '#ffb8dc', false);
+      c.restore();
+      fanBlob(c, nx, ny, 0.19 * r, skin, lw);
+    }
+    c.restore();
+  }
+  function lerpN(a, b, k) { return a + (b - a) * k; }
+
+  /* A photographer in view fires (for the runway's camera bursts): marks
+     their shot so the camera kicks, and returns the flash's position. */
+  function crowdShot(t) {
+    var best = null, n = 0;
+    for (var i = 0; i < AUDIENCE.length; i++) {
+      var p = AUDIENCE[i];
+      if (p.row > 1 || (p.kind !== 'camera' && p.kind !== 'phone') || p.x < 40 || p.x > W - 40) continue;
+      n++;
+      if (Math.random() * n < 1) best = p;
+    }
+    if (!best) return null;
+    best.shotT = t;
+    var lx = best.kind === 'camera' ? 0.54 * best.r : 0.95 * best.r, ly = best.kind === 'camera' ? -0.6 * best.r : -1.4 * best.r;
+    return [best.x + best.face * lx, best.y + ly];
   }
 
   function drawBalloons(c, t) {
@@ -1715,6 +2010,7 @@
        rows are lit by the stage; the front row sits in the dark right
        by the camera, out of focus. */
     var ex = excitement || 0;
+    crowdSpot = spotX;
     /* the crowd repeats every 864px so it fills the tablet bezel too */
     var rep;
     for (rep = Math.floor(V.x / 864) - 1; rep * 864 < V.x + V.w + 60; rep++) {
@@ -1724,11 +2020,21 @@
       for (var a = 0; a < AUDIENCE.length; a++) if (AUDIENCE[a].row < 2) drawSpectator(c, AUDIENCE[a], t, ex);
       c.restore();
     }
-    var fade = c.createLinearGradient(0, RUNWAY.audienceY + 20, 0, V.y + V.h);
+    /* the catwalk's spill on the faces nearest it, then the dark
+       falling over the bodies below the middle row's faces */
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    var spill = c.createLinearGradient(0, RUNWAY.audienceY - 30, 0, RUNWAY.audienceY + 40);
+    spill.addColorStop(0, 'rgba(255, 150, 210, 0.1)');
+    spill.addColorStop(1, 'rgba(255, 150, 210, 0)');
+    c.fillStyle = spill;
+    c.fillRect(V.x, RUNWAY.audienceY - 30, V.w, 70);
+    c.restore();
+    var fade = c.createLinearGradient(0, RUNWAY.audienceY + 44, 0, V.y + V.h);
     fade.addColorStop(0, 'rgba(26,12,38,0)');
     fade.addColorStop(1, 'rgba(26,12,38,0.75)');
     c.fillStyle = fade;
-    c.fillRect(V.x, RUNWAY.audienceY + 20, V.w, V.y + V.h - RUNWAY.audienceY - 20);
+    c.fillRect(V.x, RUNWAY.audienceY + 44, V.w, V.y + V.h - RUNWAY.audienceY - 44);
     drawFrontRow(c, t, ex);
   }
 
@@ -1801,6 +2107,7 @@
     drawRunwayDoor: drawRunwayDoor,
     drawStage: drawStage,
     drawFlash: drawFlash,
+    crowdShot: crowdShot,
     drawBalloons: drawBalloons,
     drawReflectionBand: drawReflectionBand,
     drawForeground: drawForeground,

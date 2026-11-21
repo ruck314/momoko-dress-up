@@ -13,7 +13,7 @@
   var GAME_X = 0, GAME_Y = 0;
 
   /* Bump alongside CACHE_NAME in sw.js and tag the matching git release. */
-  Game.VERSION = 'v1.10.0';
+  Game.VERSION = 'v1.11.0';
 
   /* Post-processing switches, all on by default. A slow device (or a
      test) can turn any of them off without touching the scene code. */
@@ -650,6 +650,33 @@
     else if (fxLevel === 1) { Game.FX.dof = false; Game.FX.frost = false; Game.FX.rim = false; fxLevel = 0; }
   }
 
+  /* Render interpolation: the game ticks at a fixed 60 Hz, but the
+     display rarely lines up with it (120 Hz iPads, rAF jitter), so each
+     frame is drawn between the last two ticks. Momoko, the camera and
+     the model on the catwalk are set to the blended spot for the paint
+     and put back after; a jump (teleport, a new model) is not blended. */
+  var prev = { px: 0, cx: 0, m: null, mx: 0 };
+  function snapshot() {
+    prev.px = player.x; prev.cx = camera.x;
+    prev.m = state === State.RUNWAY ? Game.runway.current() : null;
+    prev.mx = prev.m ? prev.m.x : 0;
+  }
+  function blendTo(a, b, k) { return Math.abs(b - a) < 48 ? a + (b - a) * k : b; }
+  function renderBlended(k) {
+    var m = state === State.RUNWAY ? Game.runway.current() : null;
+    var px = player.x, cx = camera.x, mx = m ? m.x : 0;
+    if (state === State.PLAYING) {
+      player.x = blendTo(prev.px, px, k); camera.x = blendTo(prev.cx, cx, k);
+      player.anim.alpha = k;
+    }
+    if (m && m === prev.m) { m.x = blendTo(prev.mx, mx, k); m.anim.alpha = k; }
+    try { render(); }
+    finally {
+      player.x = px; camera.x = cx; player.anim.alpha = 1;
+      if (m) { m.x = mx; m.anim.alpha = 1; }
+    }
+  }
+
   function gameLoop(timestamp) {
     var delta = timestamp - lastTime;
     lastTime = timestamp;
@@ -657,10 +684,11 @@
     watchFrameRate(delta);
     accumulator += delta;
     while (accumulator >= FIXED_DT) {
+      snapshot();
       update();
       accumulator -= FIXED_DT;
     }
-    render();
+    renderBlended(accumulator / FIXED_DT);
     requestAnimationFrame(gameLoop);
   }
 

@@ -903,21 +903,19 @@
 
   function cloneLook(l) { return JSON.parse(JSON.stringify(l)); }
 
-  /* The preview's animator, stepped in real time: 2.6 s walking, 2.4 s
-     standing, then a turn and the other way. */
+  /* The preview's animator, stepped once a frame by the real frame time
+     (so a 120 Hz screen neither doubles its speed nor repeats frames):
+     2.6 s walking, 2.4 s standing, then a turn and the other way. */
   var preview = { anim: null, last: 0, clock: 0, x: 0 };
   function stepPreview() {
     if (!preview.anim) preview.anim = new E.Animator('run');
     var now = performance.now();
-    var dt = preview.last ? Math.min(0.05, Math.max(0, (now - preview.last) / 1000)) : 1 / 60;
+    var dt = preview.last ? Math.min(0.05, Math.max(0.001, (now - preview.last) / 1000)) : 1 / 60;
     preview.last = now;
-    var n = Math.max(1, Math.round(dt * 60));
-    for (var i = 0; i < n; i++) {
-      preview.clock += 1 / 60;
-      var ph = preview.clock % 10, facing = ph < 5 ? 1 : -1, walking = (ph % 5) < 2.6;
-      if (walking) preview.x += facing * 2.6;
-      preview.anim.step(1 / 60, preview.x, walking, facing, 3.2, 'walk');
-    }
+    preview.clock += dt;
+    var ph = preview.clock % 10, facing = ph < 5 ? 1 : -1, walking = (ph % 5) < 2.6;
+    if (walking) preview.x += facing * 270 * dt;
+    preview.anim.step(dt, preview.x, walking, facing, 3.2, 'walk');
     return preview.anim;
   }
 
