@@ -2809,6 +2809,26 @@
   };
   (function () { for (var k in GAITS) GAITS[k].cycle = 2 * GAITS[k].A / GAITS[k].sigma; })();
 
+  /* The gait under turbo (holding a direction), b 0..1 of the boost: a
+     longer stride and a shorter stance, a touch more cadence, lift, arm
+     swing and lean, so double speed reads as a sprint rather than the
+     legs blurring. Fills one scratch object; b = 0 is the gait itself. */
+  var TURBO_G = {};
+  function gaitAt(name, b) {
+    var G = GAITS[name] || GAITS.run;
+    if (!(b > 0.001)) return G;
+    for (var k in G) TURBO_G[k] = G[k];
+    TURBO_G.A = G.A * (1 + 0.35 * b);
+    TURBO_G.sigma = G.sigma - 0.06 * b;
+    TURBO_G.lift = G.lift * (1 + 0.5 * b);
+    TURBO_G.arm = G.arm * (1 + 0.3 * b);
+    TURBO_G.elbow = G.elbow + 0.2 * b;
+    TURBO_G.lean = G.lean + 0.05 * b;
+    TURBO_G.rate = G.rate + 0.1 * b;
+    TURBO_G.cycle = 2 * TURBO_G.A / TURBO_G.sigma;
+    return TURBO_G;
+  }
+
   /* One foot through the cycle: [forward x, lift, angle (toe up +)]. */
   function footCycle(u, G) {
     var s = G.sigma, k;
@@ -2828,7 +2848,7 @@
 
   var RIG = { legs: [{}, {}], arms: [{}, {}] };
   function buildRig(S, cust) {
-    var G = GAITS[S.gait] || GAITS.run;
+    var G = gaitAt(S.gait, S.boost);
     var R = RIG;
     var w = S.walkW, ph = S.phase, t = S.t, yaw = S.yaw;
     var br = Math.sin(t * TAU / 3.6);
@@ -2986,6 +3006,8 @@
     this.lookT = 1.5 + Math.random() * 2; this.lookTX = 0; this.lookTY = 0;
     this.idle = 0; this.fidget = null; this.fidgetK = 0; this.fidgetDur = 1; this.fidgetT = 4 + Math.random() * 3;
     this.dip = 0; this.pose = 'walk';
+    /* turbo: boostT is set by the player each tick, boost eases after it */
+    this.boost = 0; this.boostT = 0;
     /* stride: 1 while the gait drives the feet. steps: each foot's hold
        and step home (k 0..1, from x0, after wait, lifted by h). pace:
        cadence as a share of the gait's cap, for the arm swing. */
@@ -3004,7 +3026,8 @@
     return st.k < 1 ? lerp(st.x0, gx, smooth(st.k)) : gx;
   };
   Animator.prototype.step = function (dt, x, moving, facing, scale, pose) {
-    var G = GAITS[this.gait] || GAITS.run;
+    this.boost += (this.boostT - this.boost) * Math.min(1, dt * 10);
+    var G = gaitAt(this.gait, this.boost);
     var i, st;
     this.p0 = this.phase; this.t0 = this.t;
     this.t += dt;
@@ -3074,9 +3097,11 @@
     }
     this.dip = Math.max(0, this.dip - dt / 0.24);
     this.lean.step(clamp(v / 320, -1.2, 1.2) * G.lean * 0.9, dt);
-    this.hairA.step(clamp(v * 0.00026, -0.16, 0.16), dt);
+    /* at a turbo sprint the hair and the hem stream further back */
+    var hm = 0.16 + 0.08 * this.boost, sm = 2.8 + 1.2 * this.boost;
+    this.hairA.step(clamp(v * 0.00026 * (1 + 0.4 * this.boost), -hm, hm), dt);
     this.hairB.step(this.hairA.x * 1.1, dt);
-    this.skirt.step(clamp(-v * 0.0068, -2.8, 2.8), dt);
+    this.skirt.step(clamp(-v * 0.0068, -sm, sm), dt);
     this.lag.step(gaitBob(this.gait, this.phase, this.walkW), dt);
     this.pose = pose || 'walk';
     this.hipW.step(this.pose === 'pose' ? 1 : 0, dt);
@@ -3125,7 +3150,7 @@
     if (dp < -0.5) dp += 1;
     S.t = this.t0 + (this.t - this.t0) * al; S.f = f; S.gait = this.gait;
     S.yaw = clamp(this.yaw.x, 0, 1) * ta;
-    S.ta = ta; S.stride = this.stride; S.steps = this.steps; S.pace = this.pace;
+    S.ta = ta; S.stride = this.stride; S.steps = this.steps; S.pace = this.pace; S.boost = this.boost;
     S.phase = Math.abs(dp) > 0.3 ? this.phase : (this.p0 + dp * al) % 1; S.walkW = this.walkW;
     S.lean = this.lean.x * f;
     S.hairA = this.hairA.x * f; S.hairB = this.hairB.x * f; S.skirt = this.skirt.x * f;
@@ -3162,7 +3187,7 @@
     S.blink = blink ? 1 : 0;
     S.look[0] = 0; S.look[1] = 0;
     S.fidget = null; S.fidgetK = 0; S.dip = 0; S.headTilt = 0;
-    S.ta = 1; S.stride = S.walkW; S.steps = null; S.pace = 1;
+    S.ta = 1; S.stride = S.walkW; S.steps = null; S.pace = 1; S.boost = 0;
     return S;
   }
 
@@ -3203,7 +3228,7 @@
     MOTION.t = S.t;
     MOTION.moving = S.walkW > 0.5;
     MOTION.yaw = S.yaw;
-    MOTION.hairA = S.hairA + S.walkW * 0.025 * Math.sin(S.phase * TAU * 2) + (1 - S.walkW) * Math.sin(S.t * 1.4) * 0.018;
+    MOTION.hairA = S.hairA + S.walkW * 0.025 * Math.sin(S.phase * TAU * 2) + (1 - S.walkW) * Math.sin(S.t * 1.4) * 0.018 + S.boost * 0.02 * Math.sin(S.t * 17);
     MOTION.hairB = S.hairB;
     MOTION.skirt = S.skirt;
     MOTION.swing = -S.skirt * 1.4;
@@ -3473,6 +3498,8 @@
   Particle.prototype.update = function () {
     this.x += this.vx;
     this.y += this.vy;
+    /* dust puffs drift and slow instead of falling */
+    if (this.kind === 'puff') { this.vx *= 0.92; this.vy *= 0.92; this.life--; return; }
     this.vy += this.kind === 'confetti' ? 0.04 : 0.12;
     if (this.kind === 'confetti') this.vx *= 0.98;
     this.life--;
@@ -3490,6 +3517,11 @@
       c.translate(this.x, this.y);
       c.rotate(this.spin + this.life * 0.1);
       c.fillRect(-this.size, -this.size * 0.5, this.size * 2, this.size);
+    } else if (this.kind === 'puff') {
+      c.globalAlpha = a * 0.7;
+      c.beginPath();
+      c.arc(this.x, this.y, this.size * (1.6 - a * 0.8), 0, Math.PI * 2);
+      c.fill();
     } else {
       c.beginPath();
       c.arc(this.x, this.y, this.size * a, 0, Math.PI * 2);
@@ -3547,22 +3579,94 @@
   };
 
   var SPEED = 5.4;
+  /* Turbo: holding one direction for 5 s starts her top speed ramping,
+     smoothly, up to double at 10 s (60 Hz ticks). Letting go, or turning
+     round, puts her back to walking pace with the timer at zero. */
+  var TURBO_AT = 300, TURBO_FULL = 600, COAST = 15;
 
-  function Player(x, y) { Walker.call(this, x, y, 'run'); this.scale = 1.85; }
+  function Player(x, y) {
+    Walker.call(this, x, y, 'run');
+    this.scale = 1.85;
+    this.v = 0; this.holdDir = 0; this.holdT = 0; this.turbo = 1;
+    this.coastV = 0; this.coastK = 0; this.coastN = 0;
+  }
   Player.prototype = Object.create(Walker.prototype);
   Player.prototype.constructor = Player;
   Player.prototype.update = function (keys, minX, maxX) {
     var x0 = this.x;
-    if (keys.left && !keys.right) { this.x -= SPEED; this.facing = -1; }
-    else if (keys.right && !keys.left) { this.x += SPEED; this.facing = 1; }
-    if (this.x < minX) this.x = minX;
-    if (this.x > maxX) this.x = maxX;
+    var dir = keys.left && !keys.right ? -1 : keys.right && !keys.left ? 1 : 0;
+    if (dir !== this.holdDir) {
+      /* out of a boost she coasts down over up to a quarter second
+         instead of stopping dead; from walking pace nothing coasts */
+      var over = Math.abs(this.v) / SPEED - 1;
+      this.coastV = this.v; this.coastK = 0;
+      this.coastN = over > 0 ? Math.ceil(COAST * Math.min(1, over)) : 0;
+      this.holdDir = dir; this.holdT = 0;
+    }
+    var coast = 0;
+    if (this.coastK < this.coastN) {
+      this.coastK++;
+      var u = 1 - this.coastK / this.coastN;
+      coast = this.coastV * u * u;
+    }
+    if (dir) {
+      this.holdT++;
+      this.turbo = 1 + smooth((this.holdT - TURBO_AT) / (TURBO_FULL - TURBO_AT));
+      var want = dir * SPEED * this.turbo;
+      this.v = coast * dir > want * dir ? coast : want;
+      this.facing = dir;
+    } else {
+      this.turbo = 1;
+      this.v = coast;
+    }
+    this.x += this.v;
+    if (this.x < minX || this.x > maxX) {
+      this.x = clamp(this.x, minX, maxX);
+      this.v = 0; this.coastN = 0;
+    }
+    this.anim.boostT = clamp(Math.abs(this.v) / SPEED - 1, 0, 1);
     this.animate(this.x !== x0);
+  };
+  /* Outside her own walk (puzzle, wardrobe, show, pause) the hold
+     timer can't run on, so coming back always starts at walking pace. */
+  Player.prototype.stopTurbo = function () {
+    this.v = 0; this.holdDir = 0; this.holdT = 0; this.turbo = 1;
+    this.coastN = 0; this.anim.boostT = 0;
   };
   Player.prototype.draw = function (c, cust, scale, t) {
     this.scale = scale || 1;
+    if (this.anim.boost > 0.02) drawSpeedLines(c, this);
     drawCharacter(c, this.x, this.y, cust, this.frame, this.facing, this.scale, this.blink, 0, { t: t, anim: this.anim });
   };
+  /* Turbo cue behind her: a few soft speed lines drifting off her back,
+     longer and brighter as the boost builds. */
+  function drawSpeedLines(c, p) {
+    var A = p.anim, b = A.boost, f = p.facing, sc = p.scale;
+    var at = A.t0 + (A.t - A.t0) * A.alpha;
+    c.save();
+    c.lineCap = 'round';
+    for (var i = 0; i < 4; i++) {
+      var k = (at * 2.6 + i * 0.37) % 1;
+      var y = p.y - sc * (16 + i * 10);
+      var x0 = p.x - f * sc * (10 + k * 22);
+      var len = sc * (10 + 16 * b) * (0.7 + 0.3 * Math.sin(i * 2.1 + 1));
+      var al = b * Math.sin(Math.PI * k);
+      /* a white glow with a pink core, so they read on the pale walls
+         and on the booths alike */
+      c.beginPath();
+      c.moveTo(x0, y);
+      c.lineTo(x0 - f * len, y);
+      c.globalAlpha = al * 0.55;
+      c.strokeStyle = '#ffffff';
+      c.lineWidth = sc * (2.2 - i * 0.2);
+      c.stroke();
+      c.globalAlpha = al * 0.6;
+      c.strokeStyle = '#f08cc8';
+      c.lineWidth = sc * (0.9 - i * 0.08);
+      c.stroke();
+    }
+    c.restore();
+  }
 
   /* A runway model: struts toward targetX, easing into the stop so the
      springs settle her, then holds. */
@@ -3636,6 +3740,7 @@
     Particle: Particle,
     spawnBurst: spawnBurst,
     Player: Player,
+    TURBO_AT: TURBO_AT,
     Model: Model,
     Animator: Animator,
     _rig: RIG,   /* debug: the last rig drawn, for the motion probes */

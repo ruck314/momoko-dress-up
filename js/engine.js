@@ -13,7 +13,7 @@
   var GAME_X = 0, GAME_Y = 0;
 
   /* Bump alongside CACHE_NAME in sw.js and tag the matching git release. */
-  Game.VERSION = 'v1.11.0';
+  Game.VERSION = 'v1.12.0';
 
   /* Post-processing switches, all on by default. A slow device (or a
      test) can turn any of them off without touching the scene code. */
@@ -242,6 +242,8 @@
     Game.input.update();
     var keys = Game.input.keys;
     var jp = Game.input.justPressed;
+    /* turbo only builds up while she is walking the studio herself */
+    if (state !== State.PLAYING || Game.gate.isOpen()) player.stopTurbo();
 
     if (Game.gate.isOpen()) {
       Game.gate.update();
@@ -280,8 +282,10 @@
     if (jp.pause) { prevState = state; state = State.PAUSED; return; }
 
     player.update(keys, 60, Game.STUDIO.width - 60);
-    /* the camera eases after her and looks a little ahead of her feet */
-    var want = Math.max(0, Math.min(Game.STUDIO.width - W, player.x - W / 2 + player.facing * 36));
+    turboCue();
+    /* the camera eases after her and looks a little ahead of her feet,
+       further ahead at a turbo sprint */
+    var want = Math.max(0, Math.min(Game.STUDIO.width - W, player.x - W / 2 + player.facing * 36 * player.turbo));
     camera.x += (want - camera.x) * 0.1;
     if (Math.abs(want - camera.x) < 0.3) camera.x = want;
 
@@ -291,6 +295,22 @@
       if (target.id === 'runway') { enterRunway(); return; }
       if (target.id.indexOf('station:') === 0) { openStation(target.id.slice(8)); return; }
     }
+  }
+
+  /* Turbo cue: a soft whoosh as the boost kicks in, then a little puff
+     of dust each time a foot lands while she is faster than a walk. */
+  var lastStep = 0;
+  function turboCue() {
+    if (player.holdT === E.TURBO_AT) Game.audio.play('whoosh');
+    var a = player.anim, st = Math.floor(a.phase * 2);
+    if (st !== lastStep && a.moving && a.boost > 0.04) {
+      for (var i = 0; i < 2; i++) {
+        particles.push(new E.Particle(player.x + player.facing * (10 + i * 6), Game.STUDIO.groundY - 3,
+          -player.facing * (0.5 + Math.random() * 0.9), -(0.15 + Math.random() * 0.35),
+          22 + Math.random() * 10, '#fbe6ff', (3 + Math.random() * 2) * (0.6 + 0.6 * a.boost), 'puff'));
+      }
+    }
+    lastStep = st;
   }
 
   /* ---- Render ---- */

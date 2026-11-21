@@ -207,6 +207,33 @@
     M.drum(ctx, sfxGain, 'tri', last, 0.5);
   }
 
+  /* Turbo kicking in: a soft, airy whoosh (noise through a band-pass
+     that sweeps up), quiet enough to sit under the music. */
+  function whoosh() {
+    if (!ctx) return;
+    var t = ctx.currentTime, d = 0.5;
+    var n = Math.floor(ctx.sampleRate * d);
+    var buffer = ctx.createBuffer(1, n, ctx.sampleRate);
+    var data = buffer.getChannelData(0);
+    for (var i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
+    var src = ctx.createBufferSource();
+    src.buffer = buffer;
+    var bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 1.4;
+    bp.frequency.setValueAtTime(450, t);
+    bp.frequency.exponentialRampToValueAtTime(2000, t + d);
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.exponentialRampToValueAtTime(0.16, t + 0.18);
+    g.gain.exponentialRampToValueAtTime(0.001, t + d);
+    src.connect(bp);
+    bp.connect(g);
+    g.connect(sfxGain);
+    src.start(t);
+    src.stop(t + d);
+  }
+
   function sparkle() {
     if (!ctx) return;
     var t = ctx.currentTime;
@@ -280,6 +307,7 @@
         case 'applause': applause(); break;
         case 'fanfare': fanfare(); break;
         case 'sparkle': sparkle(); break;
+        case 'whoosh': whoosh(); break;
       }
     },
     now: function () { return ctx ? ctx.currentTime : 0; },
