@@ -2801,7 +2801,7 @@
      stance, feet crossing onto the centre line, hips swinging. */
   var GAITS = {
     run: { A: 5.6, sigma: 0.38, lift: 4.0, bob: 0.9, arm: 0.72, elbow: 1.0, lean: 0.1, cross: 0.3, sway: 0.03, yaw: 0.72 },
-    cat: { A: 6.0, sigma: 0.6, lift: 2.2, bob: 0.5, arm: 0.28, elbow: 0.22, lean: -0.015, cross: 1.4, sway: 0.11, yaw: 0.62 },
+    cat: { A: 6.0, sigma: 0.6, lift: 2.2, bob: 0.5, arm: 0.46, elbow: 0.4, lean: -0.015, cross: 1.4, sway: 0.15, yaw: 0.62 },
   };
   (function () { for (var k in GAITS) GAITS[k].cycle = 2 * GAITS[k].A / GAITS[k].sigma; })();
 
@@ -2836,15 +2836,18 @@
     var fk = S.fidget ? Math.sin(Math.PI * S.fidgetK) : 0;
     if (S.fidget === 'sway') { var sh = Math.sin(S.fidgetK * TAU) * fk; hipRot += sh * 0.07; px += sh * 0.9; }
     if (S.fidget === 'bounce') { heel = Math.max(0, Math.sin(S.fidgetK * TAU * 2)) * fk * 1.5; }
-    /* the runway pose: weight on the back leg, the hip popped out */
-    hipRot += hw * 0.11; px += hw * 0.9;
-    var lean = (S.lean || 0) + w * G.lean - hw * 0.03;
+    /* the runway pose: weight on the back leg, the hip popped out; held,
+       the weight drifts a little from hip to hip */
+    hipRot += hw * (0.14 + 0.025 * Math.sin(t * 1.6)); px += hw * 1.2;
+    var lean = (S.lean || 0) + w * G.lean - hw * 0.05;
     R.squash = S.dip ? Math.sin(Math.PI * S.dip) * 0.04 : 0;
     var hx = LEG.hipX * (1 - 0.22 * yaw);
     var cross = lerp(0.12, G.cross, w);
     var lift = S.shoeLift || 0;
-    /* foot targets first, so the pelvis can drop to reach them */
-    var tg = [], i, sd;
+    /* foot targets first, so the pelvis can drop to reach them. A foot
+       that has to travel to its spot (stopping, stepping into the pose)
+       is lifted over the floor rather than slid along it. */
+    var tg = [], i, sd, far = 0, farD = -1, hk = clamp(hw, 0, 1);
     for (i = 0; i < 2; i++) {
       sd = i === 0 ? -1 : 1;
       var u = (ph + (i ? 0.5 : 0)) % 1;
@@ -2852,14 +2855,19 @@
       var base = sd * hx * (1 - cross) + px * 0.4 + 0.3;
       var ax = base + fc[0] * w, ay = -LEG.ankle - lift - fc[1] * w, ang = fc[2] * w;
       ay -= Math.max(0, -ang) * 2.0;
+      var travel = Math.abs(fc[0]) * 4 * w * (1 - w);
       if (hw > 0) {
         var pax = i === 0 ? px + 2.6 : px + 0.6 + hx * 0.4;
         var pay = -LEG.ankle - lift - (i === 0 ? 1.1 : 0);
+        travel += Math.abs(pax - ax) * Math.sin(Math.PI * hk);
         ax = lerp(ax, pax, hw); ay = lerp(ay, pay, hw); ang = lerp(ang, i === 0 ? -0.4 : 0.04, hw);
       }
       if (heel) { ay -= heel; ang -= heel * 0.3; }
+      if (S.tuck) ay -= S.tuck * (i ? 0.8 : 1);
+      if (travel > farD) { farD = travel; far = i; }
       tg.push([ax, ay, ang, sd]);
     }
+    tg[far][1] -= Math.min(2.2, farD * 0.32);
     var cy = CH.torsoBot + bob;
     var Lmax = LEG.thigh + LEG.shin - 0.15;
     for (i = 0; i < 2; i++) {
@@ -2892,28 +2900,37 @@
       var a = (sd < 0 ? -0.09 - 0.06 * (1 - yaw) : 0.13 + 0.07 * (1 - yaw)) + w * G.arm * other + br * 0.015 * sd;
       var e = 0.18 + w * G.elbow * (0.65 + 0.35 * Math.max(0, other));
       if (S.fidget === 'sway') a += sd * fk * 0.05;
-      var ex = shp[0] + Math.sin(a) * ARM.up, ey = shp[1] + Math.cos(a) * ARM.up;
-      var wx = ex + Math.sin(a + e) * ARM.fore, wy = ey + Math.cos(a + e) * ARM.fore;
-      var hintX = ex, hintY = ey, pw = 0, ptx = 0, pty = 0, phx = 0, phy = 0, open = 0;
+      var pw = 0, ptx = 0, pty = 0, phx = 0, phy = 0, open = 0;
       if (i === 0 && ww > 0.001) {
         /* the near hand waves beside her face */
         var wv = Math.sin(t * 9) * 1.4;
         var pt = T(-12.5 + wv * 0.4, -46 + Math.abs(wv) * 0.3), ph2 = T(-15.5, -35);
         pw = ww; ptx = pt[0]; pty = pt[1]; phx = ph2[0]; phy = ph2[1]; open = ww;
       } else if (i === 0 && hw > 0.001) {
-        var pt2 = T(-8.6, -21.6), ph3 = T(-15, -28.5);
+        /* hand on the hip: in reach, so the elbow bends out wide */
+        var pt2 = T(-7.8, -26.4), ph3 = T(-17, -31);
         pw = hw; ptx = pt2[0]; pty = pt2[1]; phx = ph3[0]; phy = ph3[1];
       } else if (i === 1 && hw > 0.001) {
         var pa = 0.32, pe = 0.28;
         var pex = shp[0] + Math.sin(pa) * ARM.up, pey = shp[1] + Math.cos(pa) * ARM.up;
         pw = hw; ptx = pex + Math.sin(pa + pe) * ARM.fore; pty = pey + Math.cos(pa + pe) * ARM.fore; phx = pex; phy = pey;
       }
+      /* into and out of a gesture the arm turns at the shoulder and
+         elbow, so the hand sweeps round instead of sliding across her */
       if (pw > 0) {
-        wx = lerp(wx, ptx, Math.min(1, pw)); wy = lerp(wy, pty, Math.min(1, pw));
-        hintX = lerp(hintX, phx, Math.min(1, pw)); hintY = lerp(hintY, phy, Math.min(1, pw));
+        var kt = ik2(shp[0], shp[1], ptx, pty, ARM.up, ARM.fore, phx, phy);
+        var at = Math.atan2(kt[0] - shp[0], kt[1] - shp[1]);
+        var et = Math.atan2(kt[2] - kt[0], kt[3] - kt[1]) - at;
+        while (at - a > Math.PI) at -= TAU;
+        while (at - a < -Math.PI) at += TAU;
+        while (et - e > Math.PI) et -= TAU;
+        while (et - e < -Math.PI) et += TAU;
+        var pk = smooth(Math.min(1, pw));
+        a = lerp(a, at, pk); e = lerp(e, et, pk);
       }
-      var ka = ik2(shp[0], shp[1], wx, wy, ARM.up, ARM.fore, hintX, hintY);
-      A.sx = shp[0]; A.sy = shp[1]; A.ex = ka[0]; A.ey = ka[1]; A.wx = ka[2]; A.wy = ka[3];
+      var ex = shp[0] + Math.sin(a) * ARM.up, ey = shp[1] + Math.cos(a) * ARM.up;
+      A.sx = shp[0]; A.sy = shp[1]; A.ex = ex; A.ey = ey;
+      A.wx = ex + Math.sin(a + e) * ARM.fore; A.wy = ey + Math.cos(a + e) * ARM.fore;
       A.near = i === 0; A.open = open;
       var fdir = Math.atan2(A.wy - A.ey, A.wx - A.ex);
       var handA = fdir + 0.14;
@@ -2923,7 +2940,7 @@
       A.hx = A.wx + Math.cos(handA) * 2.6; A.hy = A.wy + Math.sin(handA) * 2.6;
     }
     /* head: steadier than the body, tipping with the pose and glances */
-    R.headTilt = -lean * 0.5 - hw * 0.09 + ww * 0.05 + Math.sin(t * 0.7) * 0.015 * (1 - w) + (S.headTilt || 0);
+    R.headTilt = -lean * 0.5 - hipRot * 0.3 - hw * 0.09 + ww * 0.05 + Math.sin(t * 0.7) * 0.015 * (1 - w) + (S.headTilt || 0);
     R.headDy = br * 0.18 + (S.lag || 0) * 0.12;
     return R;
   }
@@ -3068,18 +3085,38 @@
 
   function shoeLiftOf(cust) { return cust.shoes === 'rollerSkates' ? 2.6 : 0; }
 
+  /* A happy hop on a loop of `period` frames: a crouch, a stretched
+     take-off, a round apex and a squashed landing. Returns the shared
+     { lift (px), squash } for drawCharacter's lift and opts.squash. */
+  var HOP = { lift: 0, squash: 0 };
+  function hop(f, period, height) {
+    var u = ((f % period) + period) % period / period, k;
+    HOP.lift = 0;
+    if (u < 0.16) { k = u / 0.16; HOP.squash = 0.07 * Math.sin(Math.PI * k); }
+    else if (u < 0.76) {
+      k = (u - 0.16) / 0.6;
+      HOP.lift = height * 4 * k * (1 - k);
+      HOP.squash = -0.045 * Math.abs(1 - 2 * k);
+    } else { k = (u - 0.76) / 0.24; HOP.squash = 0.08 * Math.sin(Math.PI * k) * (1 - 0.4 * k); }
+    return HOP;
+  }
+
   /* frame: 0..4 walk frame for callers without an animator (0 stands).
      facing: 1 right, -1 left. lift raises the body for a hop while the
      shadow stays put. opts: { pose: 'walk'|'pose'|'wave', t: 60 Hz frame
      counter, anim: Animator (overrides frame/facing/blink), noShadow,
-     yaw: head turn for static callers } */
+     yaw: head turn for static callers, squash: + squash / - stretch
+     about the feet (see hop) } */
   function drawCharacter(c, x, y, cust, frame, facing, scale, blink, lift, opts) {
     if (!cust) cust = Game.DEFAULT_LOOK;
     opts = opts || {};
     var S = opts.anim ? opts.anim.state() : staticState(frame, facing, blink, opts);
     S.shoeLift = shoeLiftOf(cust);
-    var R = buildRig(S, cust);
     var sc = scale || 1;
+    /* off the floor the knees tuck up a little */
+    S.tuck = lift > 0 ? lift / sc * 0.22 : 0;
+    var R = buildRig(S, cust);
+    if (opts.squash) R.squash += opts.squash;
     MOTION.t = S.t;
     MOTION.moving = S.walkW > 0.5;
     MOTION.yaw = S.yaw;
@@ -3478,9 +3515,9 @@
      springs, blinks and pose blends keep living. */
   Model.prototype.idle = function () { this.animate(false, this.pose); };
   Model.prototype.arrived = function () { return Math.abs(this.targetX - this.x) <= 0.4; };
-  Model.prototype.draw = function (c, scale, lift, t) {
+  Model.prototype.draw = function (c, scale, lift, t, squash) {
     this.scale = scale;
-    drawCharacter(c, this.x, this.y, this.look, this.frame, this.facing, scale, this.blink, lift, { pose: this.pose, t: t, anim: this.anim });
+    drawCharacter(c, this.x, this.y, this.look, this.frame, this.facing, scale, this.blink, lift, { pose: this.pose, t: t, anim: this.anim, squash: squash });
   };
 
   window.Game.entities = {
@@ -3504,6 +3541,7 @@
     softShadow: softShadow,
     CH: CH,
     drawCharacter: drawCharacter,
+    hop: hop,
     setLowDetail: setLowDetail,
     isLowDetail: isLowDetail,
     drawPortrait: drawPortrait,

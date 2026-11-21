@@ -316,16 +316,20 @@
 
   var MODEL_SCALE = 1.75;
   function drawModel(c, m, i) {
-    var drooping = show.phase === 'react' && m.result && !m.result.ok;
-    var hop = (show.phase === 'react' && m.result && m.result.ok) ? Math.max(0, Math.sin(t / 6)) * 10 : 0;
+    var reacting = show.phase === 'react' && m.result;
+    var drooping = reacting && !m.result.ok;
+    /* three whole hops for a pass, so she always lands before she walks */
+    var hp = reacting && m.result.ok && show.timer < 108 ? E.hop(show.timer, 36, 10) : null;
     c.save();
     if (drooping) {
+      /* she sags into the slump and straightens again before walking on */
+      var dk = Math.min(1, show.timer / 18) * Math.min(1, (120 - show.timer) / 14);
       c.translate(m.x, m.y);
-      c.rotate(0.08 * m.facing);
+      c.rotate(0.08 * m.facing * dk * (2 - dk));
       c.translate(-m.x, -m.y);
     }
     E.drawReflection(c, m.x, m.y, m.look, m.frame, m.facing, MODEL_SCALE, 0.24, RW().stageBottom - m.y - 9, 'rgba(184,62,128,1)', { pose: m.pose, anim: m.anim });
-    m.draw(c, MODEL_SCALE, hop, t);
+    m.draw(c, MODEL_SCALE, hp ? hp.lift : 0, t, hp ? hp.squash : 0);
     c.restore();
   }
 
@@ -371,7 +375,8 @@
     for (var i = 0; i < show.models.length; i++) {
       var m = show.models[i];
       var x = 190 + i * 105;
-      E.drawCharacter(c, x, 252, m.look, 0, 1, 1.35, false, Math.max(0, Math.sin(t / 10 + i)) * 5, { pose: m.isPlayer ? 'wave' : 'walk', t: t });
+      var rh = E.hop(t + i * 13, 63, 5);
+      E.drawCharacter(c, x, 252, m.look, 0, 1, 1.35, false, rh.lift, { pose: m.isPlayer ? 'wave' : 'walk', t: t, squash: rh.squash });
       c.font = 'bold 12px ' + Game.ui.FONT;
       c.fillStyle = m.isPlayer ? PAL.pinkDeep : PAL.ink;
       c.fillText(modelName(m), x, 272);
@@ -426,7 +431,8 @@
     Game.ui.fitFont(c, T(place === 1 ? 'runwayWinner' : 'runwayGreat'), 160, 14, 'bold', 10);
     var msgLines = Game.ui.layoutLines(c, T(place === 1 ? 'runwayWinner' : 'runwayGreat'), 160);
     for (var l = 0; l < msgLines.length; l++) c.fillText(msgLines[l], 200, 286 + l * 16);
-    E.drawCharacter(c, 200, 412, Game.look, 0, 1, 1.4, false, Math.max(0, Math.sin(t / 8)) * 8, { pose: place <= 3 ? 'wave' : 'walk', t: t });
+    var wh = E.hop(t, 50, 8);
+    E.drawCharacter(c, 200, 412, Game.look, 0, 1, 1.4, false, wh.lift, { pose: place <= 3 ? 'wave' : 'walk', t: t, squash: wh.squash });
 
     /* everyone's result */
     for (var i = 0; i < show.ranking.length; i++) {

@@ -539,7 +539,7 @@
     c.fillStyle = PAL.sun;
     E.star(c, px, py - 4, 16);
     var cast = titleCast();
-    var hop = Math.max(0, Math.sin(t / 22)) * 6;
+    var hop = E.hop(t, 138, 6);
     /* velvet ropes either side of the podium */
     for (var ps = -1; ps <= 1; ps += 2) {
       var sx2 = px + ps * 174;
@@ -562,7 +562,7 @@
     c.restore();
     E.drawCharacter(c, px - 110, py - 8, cast[0], 0, 1, 1.2, (t % 260) < 8, 0, { pose: 'pose', t: t });
     E.drawCharacter(c, px + 110, py - 8, cast[1], 0, -1, 1.2, (t % 240) < 8, 0, { pose: 'wave', t: t });
-    E.drawCharacter(c, px, py - 10, Game.look, 0, 1, 1.6, (t % 220) < 8, hop, { t: t });
+    E.drawCharacter(c, px, py - 10, Game.look, 0, 1, 1.6, (t % 220) < 8, hop.lift, { t: t, squash: hop.squash });
     /* sparkles around her */
     c.save();
     c.fillStyle = '#ffffff';
