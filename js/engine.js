@@ -13,11 +13,11 @@
   var GAME_X = 0, GAME_Y = 0;
 
   /* Bump alongside CACHE_NAME in sw.js and tag the matching git release. */
-  Game.VERSION = 'v1.8.0';
+  Game.VERSION = 'v1.9.0';
 
   /* Post-processing switches, all on by default. A slow device (or a
      test) can turn any of them off without touching the scene code. */
-  Game.FX = Game.FX || { bloom: true, grade: true, vignette: true, frost: true, dof: true };
+  Game.FX = Game.FX || { bloom: true, grade: true, vignette: true, frost: true, dof: true, rim: true };
 
   var canvas, ctx;
 
@@ -43,6 +43,7 @@
   var particles = [];
   var t = 0;
   var PLAYER_SCALE = 1.85;
+  var wardKeys = { l: false, r: false };
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
@@ -252,6 +253,12 @@
       case State.INTRO:
       case State.WARDROBE:
         if (state === State.WARDROBE && jp.pause) { Game.audio.play('select'); state = State.PLAYING; save(); }
+        /* arrow keys turn the wardrobe's pages */
+        if (state === State.WARDROBE) {
+          if (keys.left && !wardKeys.l) Game.ui.wardPage(-1);
+          if (keys.right && !wardKeys.r) Game.ui.wardPage(1);
+        }
+        wardKeys.l = !!keys.left; wardKeys.r = !!keys.right;
         break;
       case State.PLAYING:
         updatePlaying(keys, jp);
@@ -485,7 +492,7 @@
     Game.studio.drawReflectionBand(c, S.groundY, camX, function (g) {
       E.setLowDetail(true);
       drawWorldObjects(g, camX, target);
-      E.drawCharacter(g, player.x, player.y, Game.look, player.frame, player.facing, PLAYER_SCALE, false, 0, { noShadow: true, t: t });
+      E.drawCharacter(g, player.x, player.y, Game.look, player.frame, player.facing, PLAYER_SCALE, false, 0, { noShadow: true, t: t, anim: player.anim });
       E.setLowDetail(false);
     }, 0.44);
 
@@ -640,7 +647,7 @@
     frameEma += (delta - frameEma) * 0.04;
     if (frameCount % 240 !== 0 || frameEma < 28) return;
     if (fxLevel === 2) { Game.FX.grade = false; Game.FX.bloom = false; fxLevel = 1; }
-    else if (fxLevel === 1) { Game.FX.dof = false; Game.FX.frost = false; fxLevel = 0; }
+    else if (fxLevel === 1) { Game.FX.dof = false; Game.FX.frost = false; Game.FX.rim = false; fxLevel = 0; }
   }
 
   function gameLoop(timestamp) {

@@ -206,6 +206,9 @@
       case 'results':
         break;
     }
+    /* a model holding her spot keeps breathing, blinking and settling */
+    m = current();
+    if (m && show.phase !== 'enter' && show.phase !== 'exit' && show.phase !== 'results' && show.phase !== 'ready') m.idle();
     return null;
   }
 
@@ -321,8 +324,8 @@
       c.rotate(0.08 * m.facing);
       c.translate(-m.x, -m.y);
     }
-    E.drawReflection(c, m.x, m.y, m.look, m.frame, m.facing, MODEL_SCALE, 0.24, RW().stageBottom - m.y - 9, 'rgba(184,62,128,1)', { pose: m.pose });
-    E.drawCharacter(c, m.x, m.y, m.look, m.frame, m.facing, MODEL_SCALE, m.blink, hop, { pose: m.pose, t: t });
+    E.drawReflection(c, m.x, m.y, m.look, m.frame, m.facing, MODEL_SCALE, 0.24, RW().stageBottom - m.y - 9, 'rgba(184,62,128,1)', { pose: m.pose, anim: m.anim });
+    m.draw(c, MODEL_SCALE, hop, t);
     c.restore();
   }
 

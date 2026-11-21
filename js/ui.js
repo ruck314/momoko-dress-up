@@ -849,12 +849,16 @@
      ================================================================ */
   var WARD = {
     previewX: 22, previewY: 58, previewW: 252, previewH: 318,
-    gridX: 292, gridY: 62, cellW: 92, cellH: 96, cols: 5, gap: 6,
-    swatchY: 300, swatchSize: 46, swatchGap: 8,
+    gridX: 292, gridY: 60, cellW: 92, cellH: 92, cols: 5, rows: 2, gap: 6,
+    swatchY: 312, swatchSize: 46, swatchGap: 8,
+    pageY: 254, prev: { x: 292, y: 254, w: 84, h: 33 }, next: { x: 692, y: 254, w: 84, h: 33 },
     done: { x: 632, y: 412, w: 152, h: 46 },
   };
-  var ward = { station: null, particles: [], flash: 0 };
+  var PER_PAGE = WARD.cols * WARD.rows;
+  var ward = { station: null, particles: [], flash: 0, page: 0, pageAnim: 0 };
+  function wardPages(st) { return Math.max(1, Math.ceil(st.variants.length / PER_PAGE)); }
 
+  /* cell i of the current page */
   function wardCell(i) {
     var col = i % WARD.cols, row = Math.floor(i / WARD.cols);
     return {
@@ -868,9 +872,10 @@
     var total = n * size + (n - 1) * gap;
     var x0 = big ? 292 + (486 - total) / 2 : 292;
     var y = big ? 180 : WARD.swatchY;
-    if (!big && n > 8) { /* two rows of up to 5 */
-      var r = Math.floor(i / 5), cc = i % 5;
-      return { x: 292 + cc * (size + gap) + 60, y: y - 14 + r * (size + 6), w: size, h: size };
+    if (!big && n > 8) { /* two rows */
+      var per = Math.ceil(n / 2), r = Math.floor(i / per), cc = i % per;
+      size = 42; gap = 8;
+      return { x: 292 + cc * (size + gap), y: y - 6 + r * (size + 6), w: size, h: size };
     }
     return { x: x0 + i * (size + gap), y: y, w: size, h: size };
   }
@@ -884,9 +889,37 @@
     ward.station = getStation(stationId);
     ward.particles = [];
     ward.flash = 0;
+    /* open on the page holding what she has on */
+    var st = ward.station, idx = st && st.field ? st.variants.indexOf(Game.look[st.field]) : -1;
+    ward.page = idx > 0 ? Math.floor(idx / PER_PAGE) : 0;
+    ward.pageAnim = 0;
+  }
+  function turnPage(d) {
+    var n = wardPages(ward.station);
+    ward.page = (ward.page + d + n) % n;
+    ward.pageAnim = d;
+    Game.audio.play('wear');
   }
 
   function cloneLook(l) { return JSON.parse(JSON.stringify(l)); }
+
+  /* The preview's animator, stepped in real time: 2.6 s walking, 2.4 s
+     standing, then a turn and the other way. */
+  var preview = { anim: null, last: 0, clock: 0, x: 0 };
+  function stepPreview() {
+    if (!preview.anim) preview.anim = new E.Animator('run');
+    var now = performance.now();
+    var dt = preview.last ? Math.min(0.05, Math.max(0, (now - preview.last) / 1000)) : 1 / 60;
+    preview.last = now;
+    var n = Math.max(1, Math.round(dt * 60));
+    for (var i = 0; i < n; i++) {
+      preview.clock += 1 / 60;
+      var ph = preview.clock % 10, facing = ph < 5 ? 1 : -1, walking = (ph % 5) < 2.6;
+      if (walking) preview.x += facing * 2.6;
+      preview.anim.step(1 / 60, preview.x, walking, facing, 3.2, 'walk');
+    }
+    return preview.anim;
+  }
 
   /* The puzzle was paid at the station door, so a tap simply puts the
      thing on. */
@@ -910,6 +943,146 @@
     E.spawnBurst(ward.particles, cx, cy, 26, [PAL.sun, PAL.pink, '#ffffff', PAL.mint, PAL.lavender], 4, 'star');
     E.spawnBurst(ward.particles, cx, cy, 8, [PAL.pink, PAL.coral], 3, 'heart');
     if (Game.engine && Game.engine.save) Game.engine.save();
+  }
+
+  /* One wardrobe tile: a card with a station-tinted stage and a
+     spotlight, the real renderer's crop of her wearing the item, a
+     label strip, and for the chosen one a gold frame, a soft pulse and
+     a tick. */
+  function drawVariantTile(c, r, st, vid, sel, hot, look) {
+    var lift = sel ? -2 : hot ? -1 : 0;
+    var x = r.x, y = r.y + lift, w = r.w, h = r.h;
+    c.save();
+    if (sel) {
+      var pulse = 0.45 + Math.sin(t / 14) * 0.15;
+      var glow = c.createRadialGradient(x + w / 2, y + h / 2, 10, x + w / 2, y + h / 2, w * 0.85);
+      glow.addColorStop(0, 'rgba(255, 210, 74, ' + pulse + ')');
+      glow.addColorStop(1, 'rgba(255, 210, 74, 0)');
+      c.fillStyle = glow;
+      c.fillRect(x - 30, y - 30, w + 60, h + 60);
+    }
+    /* drop shadow, card, stage */
+    c.fillStyle = 'rgba(74, 42, 64, ' + (sel ? 0.24 : 0.16) + ')';
+    E.roundRect(c, x + 1, y + 4 - lift, w, h, 12);
+    c.fill();
+    var cg = c.createLinearGradient(0, y, 0, y + h);
+    cg.addColorStop(0, sel ? '#fff7d6' : '#ffffff');
+    cg.addColorStop(1, sel ? '#ffe08a' : (hot ? '#fff4f8' : '#fbeef4'));
+    c.fillStyle = cg;
+    E.roundRect(c, x, y, w, h, 12);
+    c.fill();
+    var sx = x + 6, sy = y + 6, sw = w - 12, sh = h - 30;
+    c.save();
+    E.roundRect(c, sx, sy, sw, sh, 9);
+    c.clip();
+    var sg = c.createLinearGradient(0, sy, 0, sy + sh);
+    sg.addColorStop(0, E.mix(st.hue, '#ffffff', 0.82));
+    sg.addColorStop(1, E.mix(st.hue, '#ffffff', 0.55));
+    c.fillStyle = sg;
+    c.fillRect(sx, sy, sw, sh);
+    var sp = c.createRadialGradient(x + w / 2, sy + sh * 0.35, 4, x + w / 2, sy + sh * 0.35, sw * 0.62);
+    sp.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+    sp.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    c.fillStyle = sp;
+    c.fillRect(sx, sy, sw, sh);
+    /* a floor line and a soft shadow for full-body crops */
+    c.fillStyle = 'rgba(120, 50, 100, 0.08)';
+    c.fillRect(sx, sy + sh - 8, sw, 8);
+    var tileLook = cloneLook(look);
+    tileLook[st.field] = vid;
+    if (st.id === 'hair' || st.id === 'ears') tileLook.hat = 'none';
+    if (st.id === 'eyes' && /lasses$/.test(look.accessory)) tileLook.accessory = 'none';
+    E.drawLookTile(c, x + w / 2, sy + sh / 2 + 2, Math.min(sw, sh + 8) + 4, tileLook, st.id, { bg: false, zoom: true });
+    /* the stage's inner shadow */
+    var ig = c.createLinearGradient(0, sy, 0, sy + 10);
+    ig.addColorStop(0, 'rgba(74, 42, 64, 0.16)');
+    ig.addColorStop(1, 'rgba(74, 42, 64, 0)');
+    c.fillStyle = ig;
+    c.fillRect(sx, sy, sw, 10);
+    c.restore();
+    E.roundRect(c, sx, sy, sw, sh, 9);
+    c.strokeStyle = 'rgba(74, 42, 64, 0.18)';
+    c.lineWidth = 1;
+    c.stroke();
+    /* gloss over the top of the card */
+    c.save();
+    E.roundRect(c, x, y, w, h, 12); c.clip();
+    var gl = c.createLinearGradient(0, y, 0, y + h * 0.4);
+    gl.addColorStop(0, 'rgba(255,255,255,0.45)');
+    gl.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = gl;
+    c.fillRect(x, y, w, h * 0.4);
+    c.restore();
+    /* frame */
+    E.roundRect(c, x, y, w, h, 12);
+    if (sel) {
+      c.strokeStyle = '#b8801a'; c.lineWidth = 4; c.stroke();
+      E.roundRect(c, x, y, w, h, 12);
+      c.strokeStyle = PAL.sun; c.lineWidth = 2; c.stroke();
+      E.roundRect(c, x + 3, y + 3, w - 6, h - 6, 10);
+      c.strokeStyle = 'rgba(255,255,255,0.8)'; c.lineWidth = 1; c.stroke();
+    } else {
+      c.strokeStyle = hot ? E.shade(st.hue, -30) : 'rgba(74, 42, 64, 0.45)';
+      c.lineWidth = hot ? 2.2 : 1.4;
+      c.stroke();
+    }
+    if (vid === 'none') {
+      E.fillEllipse(c, x + w - 15, y + 15, 8, 8, PAL.coral);
+      c.strokeStyle = '#fff'; c.lineWidth = 2.2;
+      c.beginPath(); c.moveTo(x + w - 19, y + 15); c.lineTo(x + w - 11, y + 15); c.stroke();
+    }
+    if (sel) {
+      var bx = x + w - 12, by = y + 12;
+      E.fillEllipse(c, bx, by + 1, 10, 10, 'rgba(43,21,48,0.25)', false);
+      E.fillEllipse(c, bx, by, 10, 10, PAL.teal);
+      c.strokeStyle = PAL.cream; c.lineWidth = 2.4; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(bx - 4.5, by); c.lineTo(bx - 1, by + 3.8); c.lineTo(bx + 5, by - 3.8); c.stroke();
+      /* a twinkle that drifts round the frame */
+      var ta = t / 40, tx = x + w / 2 + Math.cos(ta) * w * 0.48, ty = y + h / 2 + Math.sin(ta) * h * 0.48;
+      c.fillStyle = '#ffffff';
+      E.star(c, tx, ty, 3.4);
+    }
+    /* label */
+    c.fillStyle = sel ? '#5a3a10' : PAL.ink;
+    var lbl = T(st.labelPrefix + vid);
+    fitFont(c, lbl, w - 10, 11, 'bold', 7);
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText(lbl, x + w / 2, y + h - 12);
+    c.restore();
+  }
+
+  /* Page arrows and dots under the grid, when a station has more than
+     one page of things. */
+  function drawPager(c, st, pages) {
+    var arrows = [[WARD.prev, -1], [WARD.next, 1]];
+    for (var i = 0; i < 2; i++) {
+      var b = arrows[i][0], d = arrows[i][1];
+      var hot = pointerOver(c, b.x, b.y, b.w, b.h);
+      c.fillStyle = 'rgba(74, 42, 64, 0.2)';
+      E.roundRect(c, b.x, b.y + 3, b.w, b.h, 18); c.fill();
+      var g = c.createLinearGradient(0, b.y, 0, b.y + b.h);
+      g.addColorStop(0, hot ? '#ffffff' : '#fff6fb');
+      g.addColorStop(1, E.mix(st.hue, '#ffffff', hot ? 0.35 : 0.55));
+      c.fillStyle = g;
+      E.roundRect(c, b.x, b.y, b.w, b.h, 18); c.fill();
+      c.strokeStyle = E.shade(st.hue, -35); c.lineWidth = 1.6;
+      E.roundRect(c, b.x, b.y, b.w, b.h, 18); c.stroke();
+      var cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+      c.fillStyle = E.shade(st.hue, -45);
+      c.beginPath();
+      c.moveTo(cx + d * 9, cy); c.lineTo(cx - d * 5, cy - 9); c.lineTo(cx - d * 5, cy + 9); c.closePath();
+      c.fill();
+    }
+    var dx0 = 535 - (pages - 1) * 11;
+    for (var p = 0; p < pages; p++) {
+      var on = p === ward.page;
+      E.fillEllipse(c, dx0 + p * 22, WARD.pageY + 18, on ? 6 : 4.5, on ? 6 : 4.5, on ? E.shade(st.hue, -20) : 'rgba(74,42,64,0.25)', false);
+    }
+    c.fillStyle = 'rgba(74,42,64,0.7)';
+    c.font = 'bold 11px ' + FONT;
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText((ward.page + 1) + ' / ' + pages, 535, WARD.pageY + 4);
   }
 
   function drawWardrobe(c) {
@@ -1041,15 +1214,16 @@
     pv.addColorStop(1, 'rgba(120, 50, 110, 0.28)');
     c.fillStyle = pv;
     c.fillRect(PX, PY, PW, PH);
-    var cycle = Math.floor(t / 150) % 2;
-    var walkFrame = Math.floor(t / 9) % 4 + 1;
+    /* on the turntable she struts in place, stops, looks about and
+       turns: the same animator as in the studio, fed a treadmill */
+    var pa = stepPreview();
     /* her reflection lives on the glossy disc of the turntable */
     c.save();
     c.beginPath(); c.ellipse(pcx, pcy + 2, 64, 11, 0, 0, Math.PI * 2); c.clip();
-    E.drawReflection(c, pcx, pcy, look, walkFrame, cycle ? -1 : 1, 3.2, 0.26, 16, null);
+    E.drawReflection(c, pcx, pcy, look, 0, 1, 3.2, 0.26, 16, null, { anim: pa });
     c.restore();
     E.softShadow(c, pcx, pcy + 1, 54, 9, 0.3);
-    E.drawCharacter(c, pcx, pcy, look, walkFrame, cycle ? -1 : 1, 3.2, (t % 190) < 8, 0, { t: t });
+    E.drawCharacter(c, pcx, pcy, look, 0, 1, 3.2, false, 0, { t: t, anim: pa });
     if (ward.flash > 0) {
       ward.flash--;
       c.save(); c.globalAlpha = ward.flash / 30 * 0.6; c.fillStyle = '#ffffff'; c.fillRect(PX, PY, PW, PH); c.restore();
@@ -1063,61 +1237,24 @@
     /* star badge sits on the preview's top edge */
     drawStarBadge(c, PX + 8, PY - 14, Game.progress.stars, '');
 
-    /* variant grid */
+    /* variant grid: rendered previews on little lit stages, a page at a time */
     var sel;
     if (st.variants.length) {
-      for (var v = 0; v < st.variants.length; v++) {
-        var r = wardCell(v);
+      var pages = wardPages(st), first = ward.page * PER_PAGE;
+      ward.pageAnim *= 0.8;
+      if (Math.abs(ward.pageAnim) < 0.01) ward.pageAnim = 0;
+      c.save();
+      c.translate(ward.pageAnim * 40, 0);
+      c.globalAlpha = 1 - Math.abs(ward.pageAnim) * 0.8;
+      for (var v = first; v < Math.min(st.variants.length, first + PER_PAGE); v++) {
+        var r = wardCell(v - first);
         var vid = st.variants[v];
         sel = look[st.field] === vid;
         var hot = !sel && pointerOver(c, r.x, r.y, r.w, r.h);
-        if (sel) {
-          /* a warm glow behind the chosen tile */
-          c.save();
-          var glow = c.createRadialGradient(r.x + r.w / 2, r.y + r.h / 2, 10, r.x + r.w / 2, r.y + r.h / 2, r.w * 0.85);
-          glow.addColorStop(0, 'rgba(255, 210, 74, 0.55)');
-          glow.addColorStop(1, 'rgba(255, 210, 74, 0)');
-          c.fillStyle = glow;
-          c.fillRect(r.x - 30, r.y - 30, r.w + 60, r.h + 60);
-          c.restore();
-        }
-        c.fillStyle = 'rgba(74, 42, 64, 0.16)';
-        E.roundRect(c, r.x, r.y + 3, r.w, r.h, 10);
-        c.fill();
-        c.fillStyle = sel ? PAL.sun : (hot ? '#ffffff' : 'rgba(255,246,236,0.92)');
-        E.roundRect(c, r.x, r.y, r.w, r.h, 10);
-        c.fill();
-        c.save();
-        E.roundRect(c, r.x, r.y, r.w, r.h, 10); c.clip();
-        var tg2 = c.createLinearGradient(0, r.y, 0, r.y + r.h);
-        tg2.addColorStop(0, 'rgba(255,255,255,0.5)');
-        tg2.addColorStop(0.3, 'rgba(255,255,255,0)');
-        tg2.addColorStop(1, 'rgba(226,85,154,0.07)');
-        c.fillStyle = tg2;
-        c.fillRect(r.x, r.y, r.w, r.h);
-        c.restore();
-        c.fillStyle = sel ? PAL.sun : 'rgba(255,246,236,1)';
-        E.roundRect(c, r.x, r.y, r.w, r.h, 10);
-        E.ink(c, sel ? 3 : 1.8);
-        var tileLook = cloneLook(look);
-        tileLook[st.field] = vid;
-        if (st.id === 'hair' || st.id === 'ears') tileLook.hat = 'none';
-        if (st.id === 'eyes' && (look.accessory === 'glasses' || look.accessory === 'sunglasses')) tileLook.accessory = 'none';
-        E.drawLookTile(c, r.x + r.w / 2, r.y + 36, 60, tileLook, st.id, { bgTop: '#ffffff', bgBot: sel ? '#fff3c0' : '#ffeaf3' });
-        if (vid === 'none') {
-          c.save(); c.globalAlpha = 0.9;
-          E.fillEllipse(c, r.x + r.w - 14, r.y + 14, 9, 9, PAL.coral);
-          c.strokeStyle = '#fff'; c.lineWidth = 2.2;
-          c.beginPath(); c.moveTo(r.x + r.w - 18, r.y + 14); c.lineTo(r.x + r.w - 10, r.y + 14); c.stroke();
-          c.restore();
-        }
-        c.fillStyle = PAL.ink;
-        var lbl = T(st.labelPrefix + vid);
-        fitFont(c, lbl, r.w - 8, 11, 'bold', 7);
-        c.textAlign = 'center';
-        c.textBaseline = 'middle';
-        c.fillText(lbl, r.x + r.w / 2, r.y + r.h - 14);
+        drawVariantTile(c, r, st, vid, sel, hot, look);
       }
+      c.restore();
+      if (pages > 1) drawPager(c, st, pages);
     } else {
       c.fillStyle = PAL.ink;
       c.font = 'bold 16px ' + FONT;
@@ -1133,7 +1270,7 @@
         c.font = 'bold 12px ' + FONT;
         c.textAlign = 'left';
         c.textBaseline = 'middle';
-        c.fillText(T('wardColour'), 294, WARD.swatchY - 14 + (st.colors.length > 8 ? -10 : 0));
+        c.fillText(T('wardColour'), 294, WARD.swatchY - 13);
       }
       for (var s = 0; s < st.colors.length; s++) {
         swatch(c, wardSwatch(s, st.colors.length, big), st.colors[s], look[st.colorField] === st.colors[s]);
@@ -1156,8 +1293,15 @@
     if (!st) return null;
     var i;
     if (st.variants.length) {
-      for (i = 0; i < st.variants.length; i++) {
-        if (hit(wardCell(i), mx, my)) { applyChange(st.field, st.variants[i]); return null; }
+      var first = ward.page * PER_PAGE;
+      for (i = first; i < Math.min(st.variants.length, first + PER_PAGE); i++) {
+        if (hit(wardCell(i - first), mx, my)) { applyChange(st.field, st.variants[i]); return null; }
+      }
+      if (wardPages(st) > 1) {
+        /* the arrows' touch targets reach a little past what is drawn */
+        var pad = function (b) { return { x: b.x - 8, y: b.y - 6, w: b.w + 16, h: b.h + 12 }; };
+        if (hit(pad(WARD.prev), mx, my)) { turnPage(-1); return null; }
+        if (hit(pad(WARD.next), mx, my)) { turnPage(1); return null; }
       }
     }
     if (st.colorField && st.colors) {
@@ -1287,6 +1431,7 @@
     drawTitleScreen: drawTitleScreen, handleTitleClick: handleTitleClick,
     drawIntroScreen: drawIntroScreen, handleIntroClick: handleIntroClick,
     openWardrobe: openWardrobe, drawWardrobe: drawWardrobe, handleWardrobeClick: handleWardrobeClick,
+    wardPage: function (d) { if (ward.station && wardPages(ward.station) > 1) turnPage(d); },
     drawHud: drawHud, drawPrompt: drawPrompt,
     drawPauseMenu: drawPauseMenu, handlePauseClick: handlePauseClick,
     hasSave: hasSave,
