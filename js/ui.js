@@ -1032,22 +1032,60 @@
 
   function cloneLook(l) { return JSON.parse(JSON.stringify(l)); }
 
+  /* Preview pacing, shared by every Momoko game: a pick sets off a cute
+     reaction for PREVIEW_REACT s, then she settles nearly still so the
+     outfit is easy to see, with one short moment (PREVIEW_MOMENT s) every
+     PREVIEW_GAP_MIN..PREVIEW_GAP_MAX s. `calm` eases toward 1 while
+     settled and 0 during a reaction or moment (time constant PREVIEW_EASE)
+     and damps her idle head motion by up to PREVIEW_DAMP. */
+  var PREVIEW_REACT = 2, PREVIEW_MOMENT = 1.2, PREVIEW_GAP_MIN = 6, PREVIEW_GAP_MAX = 12;
+  var PREVIEW_EASE = 0.3, PREVIEW_DAMP = 0.85;
+  var pace = { act: '', age: 0, len: 0, gap: 0, calm: 1 };
+  function pickOf(list) { return list[Math.floor(Math.random() * list.length)]; }
+  function previewAct(kind, len) {
+    pace.act = kind; pace.age = 0; pace.len = len;
+    var A = preview.anim;
+    if (kind === 'bounce' || kind === 'look') { A.fidget = kind; A.fidgetK = 0; A.fidgetDur = len; }
+  }
+  function previewPick() { if (preview.anim) previewAct(pickOf(['strut', 'wave', 'twirl']), PREVIEW_REACT); }
+
   /* The preview's animator, stepped once a frame by the real frame time
-     (so a 120 Hz screen neither doubles its speed nor repeats frames):
-     2.6 s walking, 2.4 s standing, then a turn and the other way. */
-  var preview = { anim: null, last: 0, clock: 0, x: 0 };
+     (so a 120 Hz screen neither doubles its speed nor repeats frames).
+     On the turntable she struts, waves, poses and turns only for the
+     reactions and moments above; otherwise she stands and breathes. */
+  var preview = { anim: null, last: 0, x: 0 };
   /* stations whose items are small enough to want a close-up */
   var LENS = { eyes: 1, nose: 1, mouth: 1, ears: 1, shoes: 1, hat: 1, bag: 1, extra: 1 };
   function stepPreview() {
-    if (!preview.anim) preview.anim = new E.Animator('run');
     var now = performance.now();
-    var dt = preview.last ? Math.min(0.05, Math.max(0.001, (now - preview.last) / 1000)) : 1 / 60;
+    var fresh = !preview.anim || now - preview.last > 500;
+    if (!preview.anim) {
+      preview.anim = new E.Animator('run');
+      preview.anim.state = function () {
+        var S = E.Animator.prototype.state.call(this);
+        S.headTilt *= 1 - PREVIEW_DAMP * pace.calm;
+        return S;
+      };
+    }
+    var dt = fresh ? 1 / 60 : Math.min(0.05, Math.max(0.001, (now - preview.last) / 1000));
     preview.last = now;
-    preview.clock += dt;
-    var ph = preview.clock % 10, facing = ph < 5 ? 1 : -1, walking = (ph % 5) < 2.6;
-    if (walking) preview.x += facing * 270 * dt;
-    preview.anim.step(dt, preview.x, walking, facing, 3.2, 'walk');
-    return preview.anim;
+    if (fresh) previewPick();                              /* she says hello */
+    var A = preview.anim, a = pace.act, u = pace.age;
+    var walking = a === 'strut' && u < 1.1;
+    var facing = (a === 'twirl' && u < 0.6) || (a === 'turn' && u < 0.6) ? -1 : 1;
+    var pose = a === 'wave' && u < pace.len - 0.3 ? 'wave' :
+      (a === 'pose' && u < 1) || (a === 'strut' && u >= 1.25 && u < 1.9) || (a === 'twirl' && u >= 0.9 && u < 1.8) ? 'pose' : 'walk';
+    if (walking) preview.x += 270 * dt;
+    if (!a) A.fidgetT = 99;                                /* fidgets are ours to start */
+    A.step(dt, preview.x, walking, facing, 3.2, pose);
+    pace.calm += ((a ? 0 : 1) - pace.calm) * (1 - Math.exp(-dt / PREVIEW_EASE));
+    if (a) {
+      pace.age += dt;
+      if (pace.age >= pace.len) { pace.act = ''; pace.gap = PREVIEW_GAP_MIN + Math.random() * (PREVIEW_GAP_MAX - PREVIEW_GAP_MIN); }
+    } else if ((pace.gap -= dt) <= 0) {
+      previewAct(pickOf(['wave', 'pose', 'turn', 'bounce', 'look']), PREVIEW_MOMENT);
+    }
+    return A;
   }
 
   /* The puzzle was paid at the station door, so a tap simply puts the
@@ -1067,6 +1105,7 @@
       look[st.field] = st.variants[1];
     }
     Game.audio.play('wear');
+    previewPick();
     ward.flash = 30;
     var cx = WARD.previewX + WARD.previewW / 2, cy = WARD.previewY + WARD.previewH - 120;
     E.spawnBurst(ward.particles, cx, cy, 26, [PAL.sun, PAL.pink, '#ffffff', PAL.mint, PAL.lavender], 4, 'star');
