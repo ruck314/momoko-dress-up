@@ -13,7 +13,7 @@
   var GAME_X = 0, GAME_Y = 0;
 
   /* Bump alongside CACHE_NAME in sw.js and tag the matching git release. */
-  Game.VERSION = 'v1.12.0';
+  Game.VERSION = 'v1.13.0';
 
   /* Post-processing switches, all on by default. A slow device (or a
      test) can turn any of them off without touching the scene code. */
@@ -86,6 +86,7 @@
         var st = Game.STATIONS[i];
         if (st.field && st.variants.indexOf(look[st.field]) >= 0) Game.look[st.field] = look[st.field];
         if (st.colorField && typeof look[st.colorField] === 'string') Game.look[st.colorField] = look[st.colorField];
+        if (st.patternField && Game.PATTERNS.indexOf(look[st.patternField]) >= 0) Game.look[st.patternField] = look[st.patternField];
       }
     }
     mergeInto(Game.progress, readJSON('progress'));

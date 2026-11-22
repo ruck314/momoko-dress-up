@@ -691,7 +691,7 @@
     var look = JSON.parse(JSON.stringify(Game.DEFAULT_LOOK));
     look.mannequin = true;
     switch (st.id) {
-      case 'skin': look.mannequin = false; look.skin = Game.SKIN_COLORS[2]; look.showFace = true; break;
+      case 'skin': look.mannequin = false; look.skin = Game.SKIN_COLORS[3]; look.showFace = true; break;
       case 'hair': look.showHair = true; look.hairStyle = 'longWavy'; look.hair = st.hue; break;
       case 'eyes': look.mannequin = false; look.eyeStyle = 'sparkle'; look.eyeColor = Game.EYE_COLORS[1]; break;
       case 'nose': look.mannequin = false; look.noseStyle = 'freckles'; break;

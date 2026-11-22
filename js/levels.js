@@ -49,18 +49,22 @@
   };
 
   /* ---- Colour swatches ---- */
-  Game.SKIN_COLORS  = ['#ffe3cc', '#ffddbb', '#f6c9a0', '#e0a878', '#c58a5c', '#9c6b45', '#7a4f31', '#5a3a26'];
-  Game.HAIR_COLORS  = ['#e06088', '#4a3728', '#f5d060', '#4488ff', '#222222', '#b8622f', '#c79bff', '#43b9a4', '#ffb3cf', '#dcd6ea'];
-  Game.EYE_COLORS   = ['#4a3728', '#3f7fd6', '#3e9b5a', '#8e5bd1', '#e2559a', '#e0922a', '#43b9a4', '#8a8a9e'];
-  Game.LIP_COLORS   = ['#4a2a40', '#ff6fa8', '#d8323c', '#ff8a6b', '#a05ad1', '#ffb3d9'];
-  Game.CLOTH_COLORS = ['#ff8fc0', '#e2559a', '#c79bff', '#8fe3c8', '#9fd9ff', '#ffd24a', '#ff7a6b', '#fff6ec', '#5a7fb0', '#4a3728'];
-  Game.SHOE_COLORS  = ['#e2559a', '#ff8fc0', '#4a3728', '#fff6ec', '#c79bff', '#43b9a4', '#ffd24a', '#5a7fb0', '#ff7a6b', '#9fd9ff'];
-  Game.ACC_COLORS   = ['#ffd24a', '#ff8fc0', '#c79bff', '#8fe3c8', '#9fd9ff', '#ff7a6b', '#fff6ec', '#4a3728', '#e2559a', '#43b9a4'];
-  Game.EAR_COLORS   = ['#ff8fc0', '#fff6ec', '#4a3728', '#c98a5e', '#c79bff', '#9fd9ff'];
+  Game.SKIN_COLORS  = ['#fff0e6', '#ffe3cc', '#ffddbb', '#f6c9a0', '#e0a878', '#c58a5c', '#9c6b45', '#7a4f31', '#5a3a26', '#42291b'];
+  Game.HAIR_COLORS  = ['#e06088', '#4a3728', '#f5d060', '#4488ff', '#222222', '#b8622f', '#c79bff', '#43b9a4', '#ffb3cf', '#dcd6ea', '#e8452e', '#ff9a3c'];
+  Game.EYE_COLORS   = ['#4a3728', '#3f7fd6', '#3e9b5a', '#8e5bd1', '#e2559a', '#e0922a', '#43b9a4', '#8a8a9e', '#c23b5a', '#2b2433'];
+  Game.LIP_COLORS   = ['#4a2a40', '#ff6fa8', '#d8323c', '#ff8a6b', '#a05ad1', '#ffb3d9', '#b5364f', '#f0a07a'];
+  Game.CLOTH_COLORS = ['#ff8fc0', '#e2559a', '#c79bff', '#8fe3c8', '#9fd9ff', '#ffd24a', '#ff7a6b', '#fff6ec', '#5a7fb0', '#4a3728', '#8e5bd1', '#2f2a44'];
+  Game.SHOE_COLORS  = ['#e2559a', '#ff8fc0', '#4a3728', '#fff6ec', '#c79bff', '#43b9a4', '#ffd24a', '#5a7fb0', '#ff7a6b', '#9fd9ff', '#8e5bd1', '#2f2a44'];
+  Game.ACC_COLORS   = ['#ffd24a', '#ff8fc0', '#c79bff', '#8fe3c8', '#9fd9ff', '#ff7a6b', '#fff6ec', '#4a3728', '#e2559a', '#43b9a4', '#cfd6e6', '#2f2a44'];
+  Game.EAR_COLORS   = ['#ff8fc0', '#fff6ec', '#4a3728', '#c98a5e', '#c79bff', '#9fd9ff', '#f5d060', '#2b2433'];
+  /* Prints for cloth. 'plain' comes first; the motif takes the trim
+     colour of whatever the garment's colour is. */
+  Game.PATTERNS     = ['plain', 'dots', 'stripes', 'check', 'hearts', 'stars'];
 
   /* ---- Wardrobe stations ----
      Walked to in this order, left to right. `field` is the key written
-     into the look record; `colorField` optionally enables a swatch row.
+     into the look record; `colorField` optionally enables a swatch row
+     and `patternField` a row of prints (Game.PATTERNS).
      `hue` colours the booth's awning and sign; `labelPrefix` + variant
      is the i18n key for each tile. A station with no variants (skin) is
      colour-only. The 'none' variant always comes first so taking
@@ -69,40 +73,40 @@
     { id: 'skin',   labelKey: 'st_skin',   field: null,         colorField: 'skin',       colors: Game.SKIN_COLORS,
       variants: [], labelPrefix: '', hue: '#ffd24a', emblem: 'sun' },
     { id: 'hair',   labelKey: 'st_hair',   field: 'hairStyle',  colorField: 'hair',       colors: Game.HAIR_COLORS,
-      variants: ['twinTails', 'longBraids', 'buns', 'bob', 'ponytail', 'longWavy', 'curly', 'pixie', 'sidePony', 'topBun', 'halfUp', 'longStraight', 'sideBraid', 'drills'],
+      variants: ['twinTails', 'longBraids', 'buns', 'bob', 'ponytail', 'longWavy', 'curly', 'pixie', 'sidePony', 'topBun', 'halfUp', 'longStraight', 'sideBraid', 'drills', 'puffs', 'lowTwins', 'flip', 'braidCrown'],
       labelPrefix: 'hair_', hue: '#ff8fc0', emblem: 'hair' },
     { id: 'eyes',   labelKey: 'st_eyes',   field: 'eyeStyle',   colorField: 'eyeColor',   colors: Game.EYE_COLORS,
-      variants: ['round', 'sparkle', 'happy', 'wink', 'cat', 'star', 'sleepy', 'heart', 'shine'],
+      variants: ['round', 'sparkle', 'happy', 'wink', 'cat', 'star', 'sleepy', 'heart', 'shine', 'lashes', 'dot', 'flower', 'teary'],
       labelPrefix: 'eye_', hue: '#9fd9ff', emblem: 'eyes' },
     { id: 'nose',   labelKey: 'st_nose',   field: 'noseStyle',  colorField: null,         colors: null,
-      variants: ['button', 'dot', 'line', 'freckles', 'heart'],
+      variants: ['button', 'dot', 'line', 'freckles', 'heart', 'kitty', 'bandaid', 'rosy', 'starry'],
       labelPrefix: 'nose_', hue: '#ffb3a7', emblem: 'nose' },
     { id: 'ears',   labelKey: 'st_ears',   field: 'earStyle',   colorField: 'earColor',   colors: Game.EAR_COLORS,
-      variants: ['round', 'elf', 'cat', 'bunny', 'bear', 'puppy', 'fox', 'mouse'],
+      variants: ['round', 'elf', 'cat', 'bunny', 'bear', 'puppy', 'fox', 'mouse', 'lamb', 'deer', 'koala', 'tiger'],
       labelPrefix: 'ear_', hue: '#8fe3c8', emblem: 'ears' },
     { id: 'mouth',  labelKey: 'st_mouth',  field: 'mouthStyle', colorField: 'lipColor',   colors: Game.LIP_COLORS,
-      variants: ['smile', 'grin', 'open', 'cat', 'tongue', 'kiss', 'fang', 'pout'],
+      variants: ['smile', 'grin', 'open', 'cat', 'tongue', 'kiss', 'fang', 'pout', 'laugh', 'smirk', 'ooh', 'bunny'],
       labelPrefix: 'mouth_', hue: '#ff7a6b', emblem: 'mouth' },
-    { id: 'dress',  labelKey: 'st_dress',  field: 'dress',      colorField: 'dressColor', colors: Game.CLOTH_COLORS,
-      variants: ['none', 'frilly', 'sailor', 'star', 'ballgown', 'princess', 'sundress', 'tutu', 'kimono', 'polka', 'pinafore', 'bubble', 'tiered', 'magical'],
+    { id: 'dress',  labelKey: 'st_dress',  field: 'dress',      colorField: 'dressColor', colors: Game.CLOTH_COLORS, patternField: 'dressPattern',
+      variants: ['none', 'frilly', 'sailor', 'star', 'ballgown', 'princess', 'sundress', 'tutu', 'kimono', 'polka', 'pinafore', 'bubble', 'tiered', 'magical', 'petal', 'sweater', 'rainbow', 'starlight', 'cheer'],
       labelPrefix: 'dress_', hue: '#e2559a', emblem: 'dress' },
-    { id: 'pants',  labelKey: 'st_pants',  field: 'pants',      colorField: 'pantsColor', colors: Game.CLOTH_COLORS,
-      variants: ['none', 'jeans', 'leggings', 'shorts', 'overalls', 'skirt', 'poofySkirt', 'stripey', 'joggers', 'denimSkirt', 'ruffleSkirt'],
+    { id: 'pants',  labelKey: 'st_pants',  field: 'pants',      colorField: 'pantsColor', colors: Game.CLOTH_COLORS, patternField: 'pantsPattern',
+      variants: ['none', 'jeans', 'leggings', 'shorts', 'overalls', 'skirt', 'poofySkirt', 'stripey', 'joggers', 'denimSkirt', 'ruffleSkirt', 'flares', 'cargo', 'bloomers', 'maxiSkirt'],
       labelPrefix: 'pants_', hue: '#5a7fb0', emblem: 'pants' },
-    { id: 'jacket', labelKey: 'st_jacket', field: 'jacket',     colorField: 'jacketColor', colors: Game.CLOTH_COLORS,
-      variants: ['none', 'denim', 'hoodie', 'cardigan', 'raincoat', 'cape', 'puffer', 'blazer', 'bolero', 'vest', 'varsity'],
+    { id: 'jacket', labelKey: 'st_jacket', field: 'jacket',     colorField: 'jacketColor', colors: Game.CLOTH_COLORS, patternField: 'jacketPattern',
+      variants: ['none', 'denim', 'hoodie', 'cardigan', 'raincoat', 'cape', 'puffer', 'blazer', 'bolero', 'vest', 'varsity', 'poncho', 'trench', 'fuzzy', 'windbreaker'],
       labelPrefix: 'jacket_', hue: '#c79bff', emblem: 'jacket' },
     { id: 'shoes',  labelKey: 'st_shoes',  field: 'shoes',      colorField: 'shoeColor',  colors: Game.SHOE_COLORS,
-      variants: ['none', 'maryJane', 'sneaker', 'boots', 'sandals', 'rainBoots', 'ballet', 'rollerSkates', 'slippers', 'highTops', 'loafers', 'starBoots'],
+      variants: ['none', 'maryJane', 'sneaker', 'boots', 'sandals', 'rainBoots', 'ballet', 'rollerSkates', 'slippers', 'highTops', 'loafers', 'starBoots', 'fluffyBoots', 'geta', 'sparkleHeels', 'wingShoes'],
       labelPrefix: 'shoes_', hue: '#43b9a4', emblem: 'shoes' },
     { id: 'hat',    labelKey: 'st_hat',    field: 'hat',        colorField: 'hatColor',   colors: Game.ACC_COLORS,
-      variants: ['none', 'strawHat', 'beret', 'flowerCrown', 'tiara', 'bigBow', 'cap', 'beanie', 'partyHat', 'unicorn', 'hairClips', 'sideRibbon', 'headband', 'witchHat', 'crown', 'sunHat'],
+      variants: ['none', 'strawHat', 'beret', 'flowerCrown', 'tiara', 'bigBow', 'cap', 'beanie', 'partyHat', 'unicorn', 'hairClips', 'sideRibbon', 'headband', 'witchHat', 'crown', 'sunHat', 'topHat', 'sailorCap', 'bucketHat', 'cowboyHat', 'earmuffs', 'kerchief', 'halo'],
       labelPrefix: 'hat_', hue: '#f2b632', emblem: 'hat' },
     { id: 'bag',    labelKey: 'st_bag',    field: 'bag',        colorField: 'bagColor',   colors: Game.ACC_COLORS,
-      variants: ['none', 'backpack', 'purse', 'tote', 'basket', 'heartBag', 'starBag', 'messenger', 'bunnyBag', 'balloon', 'bouquet'],
+      variants: ['none', 'backpack', 'purse', 'tote', 'basket', 'heartBag', 'starBag', 'messenger', 'bunnyBag', 'balloon', 'bouquet', 'randoseru', 'strawberryBag', 'waistBag', 'handbag', 'shoppingBags'],
       labelPrefix: 'bag_', hue: '#ff7a6b', emblem: 'bag' },
     { id: 'extra',  labelKey: 'st_extra',  field: 'accessory',  colorField: 'accColor',   colors: Game.ACC_COLORS,
-      variants: ['none', 'glasses', 'sunglasses', 'necklace', 'scarf', 'wings', 'wand', 'bowTie', 'heartGlasses', 'starGlasses', 'pearls', 'locket', 'parasol', 'butterfly'],
+      variants: ['none', 'glasses', 'sunglasses', 'necklace', 'scarf', 'wings', 'wand', 'bowTie', 'heartGlasses', 'starGlasses', 'pearls', 'locket', 'parasol', 'butterfly', 'angelWings', 'kittyTail', 'flowerLei', 'bangles', 'teddy', 'lollipop'],
       labelPrefix: 'acc_', hue: '#8e5bd1', emblem: 'extra' },
   ];
   for (var i = 0; i < Game.STATIONS.length; i++) {
@@ -119,9 +123,9 @@
     noseStyle: 'button',
     earStyle: 'round', earColor: '#ff8fc0',
     mouthStyle: 'smile', lipColor: '#4a2a40',
-    dress: 'none', dressColor: '#ff8fc0',
-    pants: 'none', pantsColor: '#5a7fb0',
-    jacket: 'none', jacketColor: '#c79bff',
+    dress: 'none', dressColor: '#ff8fc0', dressPattern: 'plain',
+    pants: 'none', pantsColor: '#5a7fb0', pantsPattern: 'plain',
+    jacket: 'none', jacketColor: '#c79bff', jacketPattern: 'plain',
     shoes: 'none', shoeColor: '#e2559a',
     hat: 'none', hatColor: '#ffd24a',
     bag: 'none', bagColor: '#ff7a6b',

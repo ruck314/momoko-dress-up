@@ -310,24 +310,152 @@
 
   function T(k) { return Game.i18n.t(k); }
 
-  /* Colour chip; the chosen one gets a thick ring and a tick. */
-  function swatch(c, r, col, sel) {
+  /* ---- Colour and pattern chips ----
+     A colour is shown as the thing it colours: a lock of hair, a cheek,
+     an iris, a pair of lips, a tuft of fur, a swatch of cloth with a
+     pinked edge, a patch of stitched leather, a cut gem. The picture is
+     painted once per colour into a sprite; the card, the hover and the
+     chosen ring are drawn live. */
+  var CHIP_KIND = { skin: 'skin', hair: 'hair', eyes: 'eye', mouth: 'lip', ears: 'fur', shoes: 'leather', extra: 'gem' };
+  function paintChip(g, kind, w, h, col, pat) {
+    var k = Math.min(w / 42, h / 52), i;
+    var warm = kind === 'skin';
+    var dark = E.shadowOf(col, 24, warm), trim = E.trimOf(col);
+    g.translate(w / 2, h / 2);
+    g.scale(k, k);
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    /* fill, a stepped shadow on the lower right, then the outline */
+    var solid = function (path) {
+      path(); g.fillStyle = col; g.fill();
+      g.save(); path(); g.clip();
+      g.fillStyle = dark; g.fillRect(-30, -30, 60, 60);
+      g.translate(-2.6, -3); path(); g.fillStyle = col; g.fill();
+      g.restore();
+    };
+    var outline = function (path) { path(); g.strokeStyle = E.inkColor(col); g.lineWidth = 1.8; g.stroke(); };
+    var p;
+    if (kind === 'hair') {
+      /* a tail of hair below its tie */
+      p = function () {
+        g.beginPath();
+        g.moveTo(-9, -17);
+        g.bezierCurveTo(6, -21, 17, -6, 12, 7);
+        g.bezierCurveTo(9, 15, 2, 21, -9, 23);
+        g.bezierCurveTo(-3, 17, -1, 11, -3, 4);
+        g.bezierCurveTo(-5, -4, -11, -9, -14, -12);
+        g.closePath();
+      };
+      solid(p);
+      g.save(); p(); g.clip();
+      g.strokeStyle = E.shadowOf(col, 36, false); g.lineWidth = 0.8; g.globalAlpha = 0.6;
+      g.beginPath(); g.moveTo(-7, -14); g.bezierCurveTo(6, -10, 9, 4, -2, 19); g.moveTo(-10, -12); g.bezierCurveTo(1, -6, 4, 4, -5, 20); g.stroke();
+      g.strokeStyle = E.mix(E.shade(col, 55), '#fff8ec', 0.3); g.lineWidth = 2.2; g.globalAlpha = 0.8;
+      g.beginPath(); g.moveTo(2, -15); g.bezierCurveTo(10, -9, 12, -2, 10, 5); g.stroke();
+      g.restore();
+      outline(p);
+      g.beginPath(); g.ellipse(-11, -16, 5.4, 4.2, -0.6, 0, Math.PI * 2);
+      g.fillStyle = col === '#e06088' || col === '#ffb3cf' ? PAL.sun : PAL.pink; g.fill();
+      g.strokeStyle = 'rgba(74, 42, 64, 0.8)'; g.lineWidth = 1.5; g.stroke();
+      g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.ellipse(-12.4, -17.6, 1.7, 1, -0.6, 0, Math.PI * 2); g.fill();
+    } else if (kind === 'skin') {
+      p = function () { g.beginPath(); g.arc(0, -1, 18, 0, Math.PI * 2); };
+      solid(p);
+      g.fillStyle = 'rgba(255, 110, 130, 0.3)'; g.beginPath(); g.ellipse(7, 5, 6, 3.6, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(255, 255, 255, 0.55)'; g.beginPath(); g.ellipse(-7, -9, 4.4, 2.6, -0.5, 0, Math.PI * 2); g.fill();
+      outline(p);
+    } else if (kind === 'eye') {
+      p = function () { g.beginPath(); g.ellipse(0, -1, 15, 18, 0, 0, Math.PI * 2); };
+      var ig = g.createLinearGradient(0, -19, 0, 17);
+      ig.addColorStop(0, E.shade(col, -50)); ig.addColorStop(0.45, col); ig.addColorStop(1, E.mix(E.shade(col, 42), '#ffe6c8', 0.12));
+      p(); g.fillStyle = ig; g.fill();
+      g.fillStyle = E.mix(E.shade(col, -70), '#2a1024', 0.5); g.beginPath(); g.ellipse(0, 0, 6.4, 8.4, 0, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = 0.5; g.fillStyle = E.mix(E.shade(col, 58), '#fff0d8', 0.2); g.beginPath(); g.ellipse(0, 9, 9.4, 5.4, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+      g.fillStyle = '#ffffff';
+      g.beginPath(); g.ellipse(-5.4, -8, 4.2, 5, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.ellipse(5.4, 7, 2.1, 2.1, 0, 0, Math.PI * 2); g.fill();
+      p(); g.strokeStyle = E.shade(col, -62); g.lineWidth = 1.8; g.stroke();
+    } else if (kind === 'lip') {
+      if (col === PAL.ink) {
+        /* the natural mouth: just her smile */
+        g.strokeStyle = '#5a2a3c'; g.lineWidth = 2.6;
+        g.beginPath(); g.arc(0, -8, 14, Math.PI * 0.2, Math.PI * 0.8); g.stroke();
+      } else {
+        p = function () {
+          g.beginPath();
+          g.moveTo(-17, -1);
+          g.bezierCurveTo(-11, -9, -5, -11, 0, -6);
+          g.bezierCurveTo(5, -11, 11, -9, 17, -1);
+          g.bezierCurveTo(10, 12, -10, 12, -17, -1);
+          g.closePath();
+        };
+        solid(p);
+        g.strokeStyle = E.shadowOf(col, 40, false); g.lineWidth = 1.1;
+        g.beginPath(); g.moveTo(-15, -1); g.quadraticCurveTo(0, 3, 15, -1); g.stroke();
+        g.fillStyle = 'rgba(255,255,255,0.6)'; g.beginPath(); g.ellipse(-4, 5, 4.6, 1.6, -0.1, 0, Math.PI * 2); g.fill();
+        outline(p);
+      }
+    } else if (kind === 'fur') {
+      p = function () { E.fluffPath(g, 0, -1, 18, 18, 11, 0.3); };
+      solid(p);
+      g.strokeStyle = E.shadowOf(col, 26, false); g.lineWidth = 1; g.globalAlpha = 0.7;
+      g.beginPath(); g.arc(5, 4, 6, 0.2, 1.7); g.moveTo(-1, -5); g.arc(-7, -3, 5.4, 0, 1.4); g.stroke(); g.globalAlpha = 1;
+      g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.ellipse(-7, -9, 4.6, 2.6, -0.5, 0, Math.PI * 2); g.fill();
+      outline(p);
+    } else if (kind === 'gem') {
+      E.jewel(g, 0, -1, 17, col, 'round');
+    } else if (kind === 'leather') {
+      p = function () { E.roundRect(g, -18, -22, 36, 42, 9); };
+      solid(p);
+      g.fillStyle = 'rgba(255,255,255,0.45)'; g.beginPath(); g.ellipse(-7, -13, 7, 3, -0.4, 0, Math.PI * 2); g.fill();
+      E.roundRect(g, -14, -18, 28, 34, 6); g.strokeStyle = trim; g.lineWidth = 1; g.setLineDash([2.4, 2]); g.stroke(); g.setLineDash([]);
+      outline(p);
+    } else {
+      /* cloth: a swatch cut with pinking shears, a fold of light across it */
+      p = function () {
+        g.beginPath();
+        g.moveTo(-18, -19); g.quadraticCurveTo(-18, -23, -14, -23); g.lineTo(14, -23); g.quadraticCurveTo(18, -23, 18, -19); g.lineTo(18, 17);
+        for (i = 0; i < 6; i++) { g.lineTo(15 - i * 6, 22); g.lineTo(12 - i * 6, 17); }
+        g.closePath();
+      };
+      solid(p);
+      g.save(); p(); g.clip();
+      if (pat && pat !== 'plain') { g.save(); g.scale(2.1, 2.1); E.drawPattern(g, pat, col, -10, -11.5, 10, 11.5); g.restore(); }
+      g.strokeStyle = E.shadowOf(col, 22, false); g.lineWidth = 0.5; g.globalAlpha = pat && pat !== 'plain' ? 0 : 0.45;
+      g.beginPath(); for (i = -20; i < 22; i += 3) { g.moveTo(-19, i); g.lineTo(19, i); } g.stroke(); g.globalAlpha = 1;
+      g.fillStyle = 'rgba(255,255,255,0.28)';
+      g.beginPath(); g.moveTo(-19, 2); g.lineTo(2, -24); g.lineTo(11, -24); g.lineTo(-19, 14); g.closePath(); g.fill();
+      g.restore();
+      g.beginPath(); g.moveTo(-14, -18.5); g.lineTo(14, -18.5); g.strokeStyle = trim; g.lineWidth = 1; g.setLineDash([2.4, 2]); g.stroke(); g.setLineDash([]);
+      outline(p);
+    }
+  }
+  /* r is the chip's whole cell (its touch target); the card sits inside. */
+  function drawChip(c, r, kind, col, sel, pat) {
     var hot = !sel && pointerOver(c, r.x, r.y, r.w, r.h);
-    c.fillStyle = col;
-    E.roundRect(c, r.x, r.y, r.w, r.h, 9);
-    c.fill();
-    c.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    E.roundRect(c, r.x + 3, r.y + 3, r.w - 6, r.h * 0.36, 5);
-    c.fill();
-    E.roundRect(c, r.x, r.y, r.w, r.h, 9);
-    E.ink(c, sel ? 4 : (hot ? 3 : 1.8));
+    var lift = sel ? -2 : hot ? -1 : 0;
+    var x = r.x + 3, y = r.y + 3 + lift, w = r.w - 6, h = r.h - 8;
+    c.fillStyle = 'rgba(74, 42, 64, ' + (sel ? 0.24 : 0.15) + ')';
+    E.roundRect(c, x + 1, y + 3 - lift, w, h, 10); c.fill();
+    var cg = c.createLinearGradient(0, y, 0, y + h);
+    cg.addColorStop(0, sel ? '#fff7d6' : '#ffffff');
+    cg.addColorStop(1, sel ? '#ffe08a' : (hot ? '#fff4f8' : '#fbeef4'));
+    c.fillStyle = cg;
+    E.roundRect(c, x, y, w, h, 10); c.fill();
+    var spr = E.getCachedSprite('chip|' + kind + '|' + col + '|' + (pat || '') + '|' + w + 'x' + h, w, h, function (g) { paintChip(g, kind, w, h, col, pat); });
+    E.drawSprite(c, spr, x, y);
+    E.roundRect(c, x, y, w, h, 10);
     if (sel) {
-      var cx = r.x + r.w - 6, cy = r.y + 6;
-      E.fillEllipse(c, cx, cy, 9, 9, PAL.teal);
-      c.strokeStyle = PAL.cream;
-      c.lineWidth = 2.4;
-      c.beginPath();
-      c.moveTo(cx - 4, cy); c.lineTo(cx - 1, cy + 3.5); c.lineTo(cx + 4.5, cy - 3.5);
+      c.strokeStyle = '#b8801a'; c.lineWidth = 4; c.stroke();
+      E.roundRect(c, x, y, w, h, 10);
+      c.strokeStyle = PAL.sun; c.lineWidth = 2; c.stroke();
+      var bx = x + w - 7, by = y + 7;
+      E.fillEllipse(c, bx, by + 1, 9, 9, 'rgba(43,21,48,0.25)', false);
+      E.fillEllipse(c, bx, by, 9, 9, PAL.teal);
+      c.strokeStyle = PAL.cream; c.lineWidth = 2.4; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(bx - 4, by); c.lineTo(bx - 1, by + 3.5); c.lineTo(bx + 4.5, by - 3.5); c.stroke();
+    } else {
+      c.strokeStyle = hot ? 'rgba(74, 42, 64, 0.75)' : 'rgba(74, 42, 64, 0.4)';
+      c.lineWidth = hot ? 2.2 : 1.4;
       c.stroke();
     }
   }
@@ -849,10 +977,10 @@
      ================================================================ */
   var WARD = {
     previewX: 22, previewY: 58, previewW: 252, previewH: 318,
-    gridX: 292, gridY: 60, cellW: 92, cellH: 92, cols: 5, rows: 2, gap: 6,
-    swatchY: 312, swatchSize: 46, swatchGap: 8,
-    pageY: 254, prev: { x: 292, y: 254, w: 84, h: 33 }, next: { x: 692, y: 254, w: 84, h: 33 },
-    done: { x: 632, y: 412, w: 152, h: 46 },
+    gridX: 292, gridY: 58, cellW: 92, cellH: 98, cols: 5, rows: 2, gap: 6,
+    pageY: 266, prev: { x: 292, y: 266, w: 100, h: 36 }, next: { x: 676, y: 266, w: 100, h: 36 },
+    chipY: 322, chipH: 70, patX: 617, patW: 53,
+    done: { x: 48, y: 392, w: 200, h: 50 },
   };
   var PER_PAGE = WARD.cols * WARD.rows;
   var ward = { station: null, particles: [], flash: 0, page: 0, pageAnim: 0 };
@@ -867,17 +995,18 @@
       w: WARD.cellW, h: WARD.cellH,
     };
   }
-  function wardSwatch(i, n, big) {
-    var size = big ? (n > 7 ? 48 : 52) : WARD.swatchSize, gap = big ? (n > 7 ? 12 : 14) : WARD.swatchGap;
-    var total = n * size + (n - 1) * gap;
-    var x0 = big ? 292 + (486 - total) / 2 : 292;
-    var y = big ? 180 : WARD.swatchY;
-    if (!big && n > 8) { /* two rows */
-      var per = Math.ceil(n / 2), r = Math.floor(i / per), cc = i % per;
-      size = 42; gap = 8;
-      return { x: 292 + cc * (size + gap), y: y - 6 + r * (size + 6), w: size, h: size };
-    }
-    return { x: x0 + i * (size + gap), y: y, w: size, h: size };
+  /* Colour chips sit in two rows under the grid, as wide as the row
+     allows; a station with prints shares the row with them, and one with
+     nothing but colours (skin) spreads big chips over the grid's place. */
+  function colourCell(st, i) {
+    var n = st.colors.length, cols, pw, ph = WARD.chipH, x0 = WARD.gridX, y0 = WARD.chipY;
+    if (!st.variants.length) { cols = 5; pw = 96; ph = 96; x0 = 294; y0 = 112; }
+    else if (st.patternField) { cols = 6; pw = 53; }
+    else { cols = Math.ceil(n / 2); pw = Math.min(80, Math.floor(484 / cols)); }
+    return { x: x0 + (i % cols) * pw, y: y0 + Math.floor(i / cols) * ph, w: pw, h: ph };
+  }
+  function patternCell(i) {
+    return { x: WARD.patX + (i % 3) * WARD.patW, y: WARD.chipY + Math.floor(i / 3) * WARD.chipH, w: WARD.patW, h: WARD.chipH };
   }
 
   function getStation(id) {
@@ -907,6 +1036,8 @@
      (so a 120 Hz screen neither doubles its speed nor repeats frames):
      2.6 s walking, 2.4 s standing, then a turn and the other way. */
   var preview = { anim: null, last: 0, clock: 0, x: 0 };
+  /* stations whose items are small enough to want a close-up */
+  var LENS = { eyes: 1, nose: 1, mouth: 1, ears: 1, shoes: 1, hat: 1, bag: 1, extra: 1 };
   function stepPreview() {
     if (!preview.anim) preview.anim = new E.Animator('run');
     var now = performance.now();
@@ -930,9 +1061,9 @@
       return;
     }
     look[field] = value;
-    /* A colour picked while nothing is worn here also puts on the first
+    /* A colour or print picked while nothing is worn here also puts on the first
        real item, otherwise the tap would buy an invisible change. */
-    if (field === st.colorField && st.field && look[st.field] === 'none' && st.variants.length > 1) {
+    if ((field === st.colorField || field === st.patternField) && st.field && look[st.field] === 'none' && st.variants.length > 1) {
       look[st.field] = st.variants[1];
     }
     Game.audio.play('wear');
@@ -969,7 +1100,7 @@
     c.fillStyle = cg;
     E.roundRect(c, x, y, w, h, 12);
     c.fill();
-    var sx = x + 6, sy = y + 6, sw = w - 12, sh = h - 30;
+    var sx = x + 6, sy = y + 6, sw = w - 12, sh = h - 36;
     c.save();
     E.roundRect(c, sx, sy, sw, sh, 9);
     c.clip();
@@ -983,14 +1114,24 @@
     sp.addColorStop(1, 'rgba(255, 255, 255, 0)');
     c.fillStyle = sp;
     c.fillRect(sx, sy, sw, sh);
-    /* a floor line and a soft shadow for full-body crops */
-    c.fillStyle = 'rgba(120, 50, 100, 0.08)';
-    c.fillRect(sx, sy + sh - 8, sw, 8);
-    var tileLook = cloneLook(look);
-    tileLook[st.field] = vid;
-    if (st.id === 'hair' || st.id === 'ears') tileLook.hat = 'none';
-    if (st.id === 'eyes' && /lasses$/.test(look.accessory)) tileLook.accessory = 'none';
-    E.drawLookTile(c, x + w / 2, sy + sh / 2 + 2, Math.min(sw, sh + 8) + 4, tileLook, st.id, { bg: false, zoom: true });
+    /* a soft pool of shadow for the item to sit over */
+    E.fillEllipse(c, x + w / 2, sy + sh - 4, sw * 0.4, 5, 'rgba(120, 50, 100, 0.1)', false);
+    /* taking something off: she is shown without it, faint, under a
+       plain "none" sign */
+    if (vid === 'none') c.globalAlpha = 0.4;
+    E.drawLookTile(c, x + w / 2, sy + sh / 2, Math.min(sw, sh + 8) + 4, tileLookFor(st, vid, look), st.id, { bg: false, zoom: true });
+    c.globalAlpha = 1;
+    if (vid === 'none') {
+      var nx = x + w / 2, ny = sy + sh / 2;
+      c.lineCap = 'round';
+      c.beginPath(); c.arc(nx, ny, 15, 0, Math.PI * 2);
+      c.fillStyle = 'rgba(255, 255, 255, 0.55)'; c.fill();
+      c.strokeStyle = '#b8455a'; c.lineWidth = 6.4; c.stroke();
+      c.beginPath(); c.moveTo(nx - 10.4, ny + 10.4); c.lineTo(nx + 10.4, ny - 10.4); c.stroke();
+      c.beginPath(); c.arc(nx, ny, 15, 0, Math.PI * 2);
+      c.strokeStyle = PAL.coral; c.lineWidth = 4; c.stroke();
+      c.beginPath(); c.moveTo(nx - 10.4, ny + 10.4); c.lineTo(nx + 10.4, ny - 10.4); c.stroke();
+    }
     /* the stage's inner shadow */
     var ig = c.createLinearGradient(0, sy, 0, sy + 10);
     ig.addColorStop(0, 'rgba(74, 42, 64, 0.16)');
@@ -1024,11 +1165,6 @@
       c.lineWidth = hot ? 2.2 : 1.4;
       c.stroke();
     }
-    if (vid === 'none') {
-      E.fillEllipse(c, x + w - 15, y + 15, 8, 8, PAL.coral);
-      c.strokeStyle = '#fff'; c.lineWidth = 2.2;
-      c.beginPath(); c.moveTo(x + w - 19, y + 15); c.lineTo(x + w - 11, y + 15); c.stroke();
-    }
     if (sel) {
       var bx = x + w - 12, by = y + 12;
       E.fillEllipse(c, bx, by + 1, 10, 10, 'rgba(43,21,48,0.25)', false);
@@ -1040,14 +1176,48 @@
       c.fillStyle = '#ffffff';
       E.star(c, tx, ty, 3.4);
     }
-    /* label */
+    /* label: one line if it fits, otherwise broken at a space into two */
     c.fillStyle = sel ? '#5a3a10' : PAL.ink;
-    var lbl = T(st.labelPrefix + vid);
-    fitFont(c, lbl, w - 10, 11, 'bold', 7);
     c.textAlign = 'center';
     c.textBaseline = 'middle';
-    c.fillText(lbl, x + w / 2, y + h - 12);
+    var lines = tileLabel(c, T(st.labelPrefix + vid), w - 8);
+    if (lines.length === 1) c.fillText(lines[0], x + w / 2, y + h - 15);
+    else { c.fillText(lines[0], x + w / 2, y + h - 21.5); c.fillText(lines[1], x + w / 2, y + h - 9); }
     c.restore();
+  }
+  /* Sets the font and returns the label as one or two lines: a long
+     name wraps at a space instead of shrinking. */
+  var labelMemo = {};
+  function tileLabel(c, lbl, maxW) {
+    c.font = 'bold 12px ' + FONT;
+    var lines = labelMemo[lbl];
+    if (!lines) {
+      if (c.measureText(lbl).width <= maxW || lbl.indexOf(' ') < 0) lines = [lbl];
+      else {
+        /* break at the space nearest the middle */
+        var best = -1, mid = lbl.length / 2, i;
+        for (i = 0; i < lbl.length; i++) if (lbl.charAt(i) === ' ' && (best < 0 || Math.abs(i - mid) < Math.abs(best - mid))) best = i;
+        lines = [lbl.slice(0, best), lbl.slice(best + 1)];
+      }
+      labelMemo[lbl] = lines;
+    }
+    return lines;
+  }
+  /* The look a tile or the close-up shows: hers, with this one thing
+     changed and anything that would hide it taken off. */
+  function tileLookFor(st, vid, look) {
+    var l = cloneLook(look);
+    l[st.field] = vid;
+    if (st.id === 'hair' || st.id === 'ears' || st.id === 'extra' || st.id === 'bag') l.hat = 'none';
+    if ((st.id === 'eyes' || st.id === 'nose') && /lasses$/.test(look.accessory)) l.accessory = 'none';
+    if (st.id === 'hair' || st.id === 'hat' || st.id === 'bag' || st.id === 'ears') l.accessory = 'none';
+    if (st.id === 'hat' || st.id === 'extra') l.bag = 'none';
+    if (st.id === 'dress' || st.id === 'pants' || st.id === 'jacket' || st.id === 'shoes') { l.bag = 'none'; l.accessory = 'none'; }
+    /* a dress would cover the trousers on offer, a coat the dress */
+    if (st.id === 'pants') { l.dress = 'none'; l.jacket = 'none'; }
+    if (st.id === 'dress') l.jacket = 'none';
+    if (st.id === 'extra' && l.jacket === 'poncho' && /^(necklace|pearls|locket|bowTie|flowerLei)$/.test(vid)) l.jacket = 'none';
+    return l;
   }
 
   /* Page arrows and dots under the grid, when a station has more than
@@ -1069,18 +1239,18 @@
       var cx = b.x + b.w / 2, cy = b.y + b.h / 2;
       c.fillStyle = E.shade(st.hue, -45);
       c.beginPath();
-      c.moveTo(cx + d * 9, cy); c.lineTo(cx - d * 5, cy - 9); c.lineTo(cx - d * 5, cy + 9); c.closePath();
+      c.moveTo(cx + d * 10, cy); c.lineTo(cx - d * 6, cy - 10); c.lineTo(cx - d * 6, cy + 10); c.closePath();
       c.fill();
     }
-    var dx0 = 535 - (pages - 1) * 11;
+    var dx0 = 534 - (pages - 1) * 11;
     for (var p = 0; p < pages; p++) {
       var on = p === ward.page;
-      E.fillEllipse(c, dx0 + p * 22, WARD.pageY + 18, on ? 6 : 4.5, on ? 6 : 4.5, on ? E.shade(st.hue, -20) : 'rgba(74,42,64,0.25)', false);
+      E.fillEllipse(c, dx0 + p * 22, WARD.pageY + 27, on ? 6 : 4.5, on ? 6 : 4.5, on ? E.shade(st.hue, -20) : 'rgba(74,42,64,0.25)', false);
     }
-    c.fillStyle = 'rgba(74,42,64,0.7)';
-    c.font = 'bold 11px ' + FONT;
+    c.fillStyle = 'rgba(74,42,64,0.75)';
+    c.font = 'bold 13px ' + FONT;
     c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText((ward.page + 1) + ' / ' + pages, 535, WARD.pageY + 4);
+    c.fillText((ward.page + 1) + ' / ' + pages, 534, WARD.pageY + 10);
   }
 
   function drawWardrobe(c) {
@@ -1094,7 +1264,7 @@
     clipGame(c);
 
     /* the room softens behind a frosted board so the tiles read cleanly */
-    frostPanel(c, 284, 52, 500, 352, 14, 'rgba(255, 250, 253, 0.56)', 8);
+    frostPanel(c, 284, 50, 500, 420, 14, 'rgba(255, 250, 253, 0.56)', 8);
 
     /* header: the station's own sign colours */
     ribbon(c, 14, 10, 262, 38, 12, st.hue, 2);
@@ -1234,6 +1404,17 @@
     c.restore();
     /* star badge sits on the preview's top edge */
     drawStarBadge(c, PX + 8, PY - 14, Game.progress.stars, '');
+    /* a close-up of the small things, in a hand mirror down in the corner */
+    if (LENS[st.id] && look[st.field] !== 'none') {
+      var lx = PX + PW - 44, ly = PY + PH - 46, lr = 37;
+      E.softShadow(c, lx + 1, ly + 4, lr + 8, lr + 8, 0.3);
+      E.fillEllipse(c, lx, ly, lr + 5, lr + 5, PAL.gold);
+      E.drawLookTile(c, lx, ly, lr * 2, tileLookFor(st, look[st.field], look), st.id, { round: true, zoom: true, bgTop: '#ffffff', bgBot: E.mix(st.hue, '#ffffff', 0.6) });
+      c.beginPath(); c.arc(lx, ly, lr, 0, Math.PI * 2);
+      c.strokeStyle = '#b8801a'; c.lineWidth = 1.6; c.stroke();
+      c.beginPath(); c.arc(lx, ly, lr + 3, Math.PI * 1.1, Math.PI * 1.5);
+      c.strokeStyle = 'rgba(255, 255, 255, 0.8)'; c.lineWidth = 1.6; c.lineCap = 'round'; c.stroke();
+    }
 
     /* variant grid: rendered previews on little lit stages, a page at a time */
     var sel;
@@ -1255,31 +1436,39 @@
       if (pages > 1) drawPager(c, st, pages);
     } else {
       c.fillStyle = PAL.ink;
-      c.font = 'bold 16px ' + FONT;
+      c.font = 'bold 18px ' + FONT;
       c.textAlign = 'center';
-      c.fillText(T('wardSkinHint'), 292 + 243, 120);
+      c.textBaseline = 'middle';
+      c.fillText(T('wardSkinHint'), 292 + 242, 84);
     }
 
-    /* colour swatches */
+    /* colour chips, and prints for cloth */
     if (st.colorField && st.colors) {
-      var big = !st.variants.length;
-      if (!big) {
-        c.fillStyle = 'rgba(74,42,64,0.7)';
-        c.font = 'bold 12px ' + FONT;
-        c.textAlign = 'left';
-        c.textBaseline = 'middle';
-        c.fillText(T('wardColour'), 294, WARD.swatchY - 13);
-      }
+      var kind = CHIP_KIND[st.id] || 'fabric';
+      c.fillStyle = 'rgba(74,42,64,0.75)';
+      c.font = 'bold 13px ' + FONT;
+      c.textAlign = 'left';
+      c.textBaseline = 'middle';
+      if (st.variants.length) c.fillText(T('wardColour'), 296, WARD.chipY - 9);
       for (var s = 0; s < st.colors.length; s++) {
-        swatch(c, wardSwatch(s, st.colors.length, big), st.colors[s], look[st.colorField] === st.colors[s]);
+        drawChip(c, colourCell(st, s), kind, st.colors[s], look[st.colorField] === st.colors[s]);
+      }
+      if (st.patternField) {
+        c.fillStyle = 'rgba(74,42,64,0.75)';
+        c.font = 'bold 13px ' + FONT;
+        c.textAlign = 'left';
+        c.fillText(T('wardPattern'), WARD.patX + 4, WARD.chipY - 9);
+        for (s = 0; s < Game.PATTERNS.length; s++) {
+          drawChip(c, patternCell(s), 'fabric', look[st.colorField], look[st.patternField] === Game.PATTERNS[s], Game.PATTERNS[s]);
+        }
       }
     }
 
-    c.fillStyle = 'rgba(74,42,64,0.6)';
-    c.font = '12px ' + FONT;
-    c.textAlign = 'left';
+    c.fillStyle = 'rgba(255, 246, 236, 0.9)';
+    c.font = 'bold 12px ' + FONT;
+    c.textAlign = 'center';
     c.textBaseline = 'middle';
-    c.fillText(T('wardHint'), 294, 428);
+    c.fillText(T('wardHint'), WARD.done.x + WARD.done.w / 2, 462);
     button(c, WARD.done, T('wardDone'), { fill: PAL.mint, font: 17 });
     drawToast(c);
     /* pop the viewport clip so the puzzle card can dim the whole screen */
@@ -1297,15 +1486,19 @@
       }
       if (wardPages(st) > 1) {
         /* the arrows' touch targets reach a little past what is drawn */
-        var pad = function (b) { return { x: b.x - 8, y: b.y - 6, w: b.w + 16, h: b.h + 12 }; };
+        var pad = function (b) { return { x: b.x - 8, y: b.y - 9, w: b.w + 16, h: b.h + 18 }; };
         if (hit(pad(WARD.prev), mx, my)) { turnPage(-1); return null; }
         if (hit(pad(WARD.next), mx, my)) { turnPage(1); return null; }
       }
     }
     if (st.colorField && st.colors) {
-      var big = !st.variants.length;
       for (i = 0; i < st.colors.length; i++) {
-        if (hit(wardSwatch(i, st.colors.length, big), mx, my)) { applyChange(st.colorField, st.colors[i]); return null; }
+        if (hit(colourCell(st, i), mx, my)) { applyChange(st.colorField, st.colors[i]); return null; }
+      }
+    }
+    if (st.patternField) {
+      for (i = 0; i < Game.PATTERNS.length; i++) {
+        if (hit(patternCell(i), mx, my)) { applyChange(st.patternField, Game.PATTERNS[i]); return null; }
       }
     }
     if (hit(WARD.done, mx, my)) return 'done';
@@ -1419,7 +1612,7 @@
     setView: setView,
     VIEW: VIEW,
     TITLE_GROUND: TITLE_GROUND,
-    button: button, hit: hit, panel: panel, ribbon: ribbon, well: well, pill: pill, frostPanel: frostPanel, multiline: multiline, swatch: swatch,
+    button: button, hit: hit, panel: panel, ribbon: ribbon, well: well, pill: pill, frostPanel: frostPanel, multiline: multiline,
     FONT: FONT, pointerOver: pointerOver, fitFont: fitFont, layoutLines: layoutLines,
     beginFrame: function () { anyHot = false; },
     isHot: function () { return anyHot; },

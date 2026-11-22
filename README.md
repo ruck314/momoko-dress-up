@@ -83,9 +83,11 @@ HUD and the title screen.
   control geometry matches the other Momoko games
 - **Dual language**: English and Japanese, with a different puzzle in each
 - **All art generated in code**: no image files anywhere
-- **13 stations, ~100 wardrobe variants, 8 colour palettes**: skin, hair,
-  eyes, nose, ears, mouth, dress, pants & skirts, jacket, shoes, hat, bag
-  and accessories, every one drawn on the character in real time
+- **13 stations, ~180 wardrobe variants, 8 colour palettes, 5 fabric
+  prints**: skin, hair, eyes, nose, ears, mouth, dress, pants & skirts,
+  jacket, shoes, hat, bag and accessories, every one drawn on the
+  character in real time. Dresses, bottoms and jackets take a print
+  (dots, stripes, check, hearts, stars) on top of their colour
 - **Five procedural catwalk soundtracks**, chosen at random each show
 
 ## Project Structure
@@ -123,7 +125,8 @@ read and write through a single `KEY()` helper.
   `js/levels.js`, paint it in the matching `draw*` function in
   `js/entities.js`, and add a `<prefix><id>` string to `js/i18n.js`
   (EN + JA). Tiles, booth displays and the puzzle card all render through
-  `drawLookTile()`, so nothing else needs an icon.
+  `drawLookTile()`, so nothing else needs an icon. A small item wants an
+  entry in `FOCUS_ITEM` (`js/entities.js`) so its wardrobe tile frames it.
 - **A station**: push an entry onto `Game.STATIONS` (the x positions are
   derived from the order), add `st_<id>` strings, and a `sampleLook()` case
   in `js/studio.js` for its booth display.
